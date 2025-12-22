@@ -1,0 +1,10 @@
+
+Showing All Errors Only
+Prepare build
+Multiple commands produce '/Users/thomas/Library/Developer/Xcode/DerivedData/MonkScan-fhupcgxcesifjgepusnsefjvhwgr/Build/Products/Debug-iphonesimulator/MonkScan.app/scanviewmonk.gif'
+
+Prepare packages
+Build target MonkScan
+
+
+Activity Log Complete    22.12.2025, 18:13    0.4 seconds
