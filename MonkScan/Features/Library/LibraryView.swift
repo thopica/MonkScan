@@ -76,11 +76,6 @@ struct LibraryView: View {
 
                 Spacer()
             }
-            .overlay(alignment: .bottomTrailing) {
-                NBIconButton(systemName: "plus", filled: true, size: 64) { }
-                    .padding(.bottom, 18)
-                    .padding(.trailing, 4)
-            }
         }
     }
 }

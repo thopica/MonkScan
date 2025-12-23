@@ -2,7 +2,7 @@ import Foundation
 import UIKit
 
 // MARK: - ScanPage
-struct ScanPage: Identifiable {
+struct ScanPage: Identifiable, Equatable {
     let id: UUID
     var uiImage: UIImage?
     var rotation: Int = 0
@@ -11,6 +11,10 @@ struct ScanPage: Identifiable {
         self.id = id
         self.uiImage = uiImage
         self.rotation = rotation
+    }
+    
+    static func == (lhs: ScanPage, rhs: ScanPage) -> Bool {
+        lhs.id == rhs.id && lhs.rotation == rhs.rotation
     }
 }
 

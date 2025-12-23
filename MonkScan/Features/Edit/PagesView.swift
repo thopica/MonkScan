@@ -1,9 +1,13 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct PagesView: View {
     @ObservedObject var sessionStore: ScanSessionStore
     @Environment(\.dismiss) private var dismiss
     @State private var showExport = false
+    @State private var draggingPage: ScanPage?
+    @State private var targetedPageId: UUID?
+    @State private var selectedPageIndex: Int?
     
     private var pages: [ScanPage] {
         sessionStore.currentSession?.pages ?? []
@@ -86,17 +90,78 @@ struct PagesView: View {
                             GridItem(.flexible(), spacing: 16),
                         ], spacing: 16) {
                             ForEach(Array(pages.enumerated()), id: \.element.id) { index, page in
-                                PageThumbnail(page: page, index: index, sessionStore: sessionStore)
+                                let isDragging = draggingPage?.id == page.id
+                                let isTargeted = targetedPageId == page.id && !isDragging
+                                
+                                PageThumbnail(page: page, index: index, onEdit: {
+                                    selectedPageIndex = index
+                                })
+                                    .opacity(isDragging ? 0.4 : 1.0)
+                                    .scaleEffect(isDragging ? 0.95 : (isTargeted ? 1.05 : 1.0))
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: NBTheme.corner + 4)
+                                            .stroke(NBColors.yellow, lineWidth: 3)
+                                            .padding(-4)
+                                            .opacity(isTargeted ? 1 : 0)
+                                    )
+                                    .animation(.easeInOut(duration: 0.2), value: isTargeted)
+                                    .animation(.easeInOut(duration: 0.15), value: isDragging)
+                                    .draggable(page.id.uuidString) {
+                                        // Drag preview
+                                        PageThumbnailPreview(page: page, index: index)
+                                            .onAppear {
+                                                withAnimation(.easeInOut(duration: 0.15)) {
+                                                    draggingPage = page
+                                                }
+                                            }
+                                    }
+                                    .dropDestination(for: String.self) { items, location in
+                                        withAnimation(.easeInOut(duration: 0.2)) {
+                                            targetedPageId = nil
+                                            draggingPage = nil
+                                        }
+                                        
+                                        guard let droppedId = items.first,
+                                              let droppedUUID = UUID(uuidString: droppedId),
+                                              let sourceIndex = pages.firstIndex(where: { $0.id == droppedUUID }),
+                                              let destinationIndex = pages.firstIndex(where: { $0.id == page.id }) else {
+                                            return false
+                                        }
+                                        
+                                        if sourceIndex != destinationIndex {
+                                            withAnimation(.easeInOut(duration: 0.25)) {
+                                                sessionStore.reorderPages(from: IndexSet(integer: sourceIndex), to: destinationIndex > sourceIndex ? destinationIndex + 1 : destinationIndex)
+                                            }
+                                        }
+                                        return true
+                                    } isTargeted: { isTargeted in
+                                        withAnimation(.easeInOut(duration: 0.15)) {
+                                            targetedPageId = isTargeted ? page.id : (targetedPageId == page.id ? nil : targetedPageId)
+                                        }
+                                    }
                             }
                         }
                         .padding(.horizontal, NBTheme.padding)
+                        .padding(.top, 8)
                         .padding(.bottom, 100)
+                    }
+                    .onChange(of: draggingPage) { oldValue, newValue in
+                        if newValue == nil {
+                            withAnimation(.easeInOut(duration: 0.15)) {
+                                targetedPageId = nil
+                            }
+                        }
                     }
                 }
             }
         }
         .navigationDestination(isPresented: $showExport) {
             ExportView()
+        }
+        .navigationDestination(item: $selectedPageIndex) { index in
+            if index < pages.count {
+                PageEditView(page: pages[index], pageIndex: index, sessionStore: sessionStore)
+            }
         }
         .navigationBarHidden(true)
     }
@@ -106,7 +171,7 @@ struct PagesView: View {
 struct PageThumbnail: View {
     let page: ScanPage
     let index: Int
-    @ObservedObject var sessionStore: ScanSessionStore
+    let onEdit: () -> Void
     
     var body: some View {
         VStack(spacing: 8) {
@@ -133,32 +198,19 @@ struct PageThumbnail: View {
                             .stroke(NBColors.ink, lineWidth: NBTheme.stroke)
                     )
                 
-                // Action buttons
-                HStack(spacing: 8) {
-                    // Rotate button
-                    Button {
-                        sessionStore.rotatePage(at: index)
-                    } label: {
-                        Image(systemName: "rotate.right")
-                            .font(.system(size: 16, weight: .bold))
-                            .foregroundStyle(NBColors.ink)
-                            .frame(width: 28, height: 28)
-                            .background(NBColors.yellow)
-                            .clipShape(Circle())
-                            .overlay(Circle().stroke(NBColors.ink, lineWidth: 1))
-                    }
-                    
-                    // Delete button
-                    Button {
-                        sessionStore.removePage(at: index)
-                    } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 22))
-                            .foregroundStyle(NBColors.danger)
-                            .background(Circle().fill(NBColors.paper))
-                    }
+                // Edit button
+                Button {
+                    onEdit()
+                } label: {
+                    Image(systemName: "pencil")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(NBColors.ink)
+                        .frame(width: 32, height: 32)
+                        .background(NBColors.yellow)
+                        .clipShape(Circle())
+                        .overlay(Circle().stroke(NBColors.ink, lineWidth: NBTheme.stroke))
                 }
-                .offset(x: 6, y: -6)
+                .offset(x: 8, y: -8)
             }
             
             Text("Page \(index + 1)")
@@ -168,16 +220,60 @@ struct PageThumbnail: View {
     }
 }
 
-#Preview {
+// MARK: - Page Thumbnail Preview (for drag)
+struct PageThumbnailPreview: View {
+    let page: ScanPage
+    let index: Int
+    
+    var body: some View {
+        VStack(spacing: 8) {
+            RoundedRectangle(cornerRadius: NBTheme.corner)
+                .fill(NBColors.warmCard)
+                .frame(width: 100, height: 133)
+                .overlay(
+                    Group {
+                        if let image = page.uiImage {
+                            Image(uiImage: image)
+                                .resizable()
+                                .scaledToFill()
+                        } else {
+                            Image(systemName: "doc.text")
+                                .font(.system(size: 24))
+                                .foregroundStyle(NBColors.mutedInk)
+                        }
+                    }
+                )
+                .clipShape(RoundedRectangle(cornerRadius: NBTheme.corner))
+                .overlay(
+                    RoundedRectangle(cornerRadius: NBTheme.corner)
+                        .stroke(NBColors.ink, lineWidth: NBTheme.stroke)
+                )
+            
+            Text("Page \(index + 1)")
+                .font(NBType.caption)
+                .foregroundStyle(NBColors.ink)
+        }
+    }
+}
+
+#Preview("PagesView") {
     NavigationStack {
         let store = ScanSessionStore()
         let _ = {
             store.startNewSession()
             if let image = UIImage(systemName: "doc.text") {
                 store.addPage(image)
+                store.addPage(image)
             }
         }()
         return PagesView(sessionStore: store)
     }
+}
+
+#Preview("PageThumbnail") {
+    let page = ScanPage(uiImage: UIImage(systemName: "doc.text"))
+    PageThumbnail(page: page, index: 0, onEdit: {})
+        .frame(width: 150)
+        .padding()
 }
 
