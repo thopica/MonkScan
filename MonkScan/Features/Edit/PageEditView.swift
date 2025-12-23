@@ -1,14 +1,28 @@
 import SwiftUI
-import CoreImage
-import CoreImage.CIFilterBuiltins
 
 struct PageEditView: View {
     let page: ScanPage
     let pageIndex: Int
     @ObservedObject var sessionStore: ScanSessionStore
     @Environment(\.dismiss) private var dismiss
-    @State private var brightness: Double = 0.0
-    @State private var contrast: Double = 1.0
+    @State private var brightness: Double
+    @State private var contrast: Double
+    @State private var pendingRotation: Int
+    @State private var showOCRResults = false
+    @State private var isProcessingOCR = false
+    @State private var ocrText: String?
+    @State private var ocrError: String?
+    
+    private let ocrService: OCRService = VisionOCRService()
+    
+    init(page: ScanPage, pageIndex: Int, sessionStore: ScanSessionStore) {
+        self.page = page
+        self.pageIndex = pageIndex
+        self.sessionStore = sessionStore
+        _brightness = State(initialValue: page.brightness)
+        _contrast = State(initialValue: page.contrast)
+        _pendingRotation = State(initialValue: page.rotation)
+    }
     
     var body: some View {
         ZStack {
@@ -37,14 +51,14 @@ struct PageEditView: View {
                     
                     Spacer()
                     
-                    // Delete button
+                    // Save button
                     Button {
-                        sessionStore.removePage(at: pageIndex)
+                        saveChanges()
                         dismiss()
                     } label: {
-                        Image(systemName: "trash")
-                            .font(.system(size: 18, weight: .medium))
-                            .foregroundStyle(NBColors.danger)
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 18, weight: .bold))
+                            .foregroundStyle(NBColors.yellow)
                             .frame(width: 44, height: 44)
                     }
                 }
@@ -118,12 +132,38 @@ struct PageEditView: View {
                     Spacer()
                 }
                 
-                // Bottom toolbar - placeholder for future editing controls
-                HStack(spacing: 32) {
-                    // Placeholder edit buttons (will be functional later)
-                    EditToolButton(icon: "rotate.right", label: "Rotate")
+                 // Bottom toolbar - editing controls
+                 HStack(spacing: 32) {
+                     Button {
+                         withAnimation(.none) {
+                             pendingRotation = (pendingRotation + 90) % 360
+                         }
+                     } label: {
+                         EditToolButton(icon: "rotate.right", label: "Rotate")
+                     }
+                     .buttonStyle(.plain)
+                    
                     EditToolButton(icon: "slider.horizontal.3", label: "Adjust")
-                    EditToolButton(icon: "crop", label: "Crop")
+                    
+                    Button {
+                        performOCR()
+                    } label: {
+                        if isProcessingOCR {
+                            VStack(spacing: 6) {
+                                ProgressView()
+                                    .progressViewStyle(CircularProgressViewStyle(tint: NBColors.yellow))
+                                    .scaleEffect(0.8)
+                                Text("OCR")
+                                    .font(NBType.caption)
+                                    .foregroundStyle(NBColors.paper.opacity(0.5))
+                            }
+                            .frame(minWidth: 60)
+                        } else {
+                            EditToolButton(icon: "doc.text.viewfinder", label: "OCR")
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(isProcessingOCR)
                 }
                 .padding(.vertical, 20)
                 .padding(.horizontal, NBTheme.padding)
@@ -131,49 +171,71 @@ struct PageEditView: View {
             }
         }
         .navigationBarHidden(true)
+        .sheet(isPresented: $showOCRResults) {
+            if let ocrText = ocrText {
+                OCRResultsView(ocrText: ocrText)
+            }
+        }
+        .alert("OCR Error", isPresented: .constant(ocrError != nil)) {
+            Button("OK") {
+                ocrError = nil
+            }
+        } message: {
+            if let error = ocrError {
+                Text(error)
+            }
+        }
+    }
+    
+    // MARK: - Save Changes
+    private func saveChanges() {
+        sessionStore.updatePage(
+            at: pageIndex,
+            rotation: pendingRotation,
+            brightness: brightness,
+            contrast: contrast
+        )
     }
     
     // MARK: - Image Adjustment
     private func adjustedImage(from image: UIImage) -> UIImage {
-        // Fix orientation first - create a properly oriented image
-        let orientedImage = fixImageOrientation(image)
-        
-        // If no adjustments needed, return oriented image
-        if brightness == 0.0 && contrast == 1.0 {
-            return orientedImage
-        }
-        
-        guard let ciImage = CIImage(image: orientedImage) else { return orientedImage }
-        
-        let context = CIContext()
-        let brightnessFilter = CIFilter.colorControls()
-        brightnessFilter.inputImage = ciImage
-        brightnessFilter.brightness = Float(brightness)
-        brightnessFilter.contrast = Float(contrast)
-        
-        guard let outputImage = brightnessFilter.outputImage,
-              let cgImage = context.createCGImage(outputImage, from: outputImage.extent) else {
-            return orientedImage
-        }
-        
-        // Return image with up orientation (already fixed)
-        return UIImage(cgImage: cgImage, scale: image.scale, orientation: .up)
+        return ImageProcessingService.applyAdjustments(
+            to: image,
+            brightness: brightness,
+            contrast: contrast,
+            rotation: pendingRotation
+        )
     }
     
-    // MARK: - Fix Image Orientation
-    private func fixImageOrientation(_ image: UIImage) -> UIImage {
-        // If image is already correctly oriented, return as-is
-        if image.imageOrientation == .up {
-            return image
+    // MARK: - OCR
+    private func performOCR() {
+        guard let image = page.uiImage else {
+            ocrError = "No image available"
+            return
         }
         
-        // Create a new image with correct orientation
-        UIGraphicsBeginImageContextWithOptions(image.size, false, image.scale)
-        image.draw(in: CGRect(origin: .zero, size: image.size))
-        let normalizedImage = UIGraphicsGetImageFromCurrentImageContext()
-        UIGraphicsEndImageContext()
+        isProcessingOCR = true
+        ocrError = nil
         
-        return normalizedImage ?? image
+        Task {
+            do {
+                // Apply current adjustments to image before OCR
+                let processedImage = adjustedImage(from: image)
+                let recognizedText = try await ocrService.recognizeText(from: processedImage)
+                
+                await MainActor.run {
+                    ocrText = recognizedText
+                    sessionStore.updatePageOCRText(at: pageIndex, ocrText: recognizedText)
+                    isProcessingOCR = false
+                    showOCRResults = true
+                }
+            } catch {
+                await MainActor.run {
+                    isProcessingOCR = false
+                    ocrError = error.localizedDescription
+                }
+            }
+        }
     }
 }
 

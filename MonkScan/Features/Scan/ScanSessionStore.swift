@@ -38,6 +38,22 @@ class ScanSessionStore: ObservableObject {
         currentSession = session
     }
     
+    func updatePage(at index: Int, rotation: Int, brightness: Double, contrast: Double) {
+        guard var session = currentSession,
+              index >= 0 && index < session.pages.count else { return }
+        session.pages[index].rotation = rotation
+        session.pages[index].brightness = brightness
+        session.pages[index].contrast = contrast
+        currentSession = session
+    }
+    
+    func updatePageOCRText(at index: Int, ocrText: String) {
+        guard var session = currentSession,
+              index >= 0 && index < session.pages.count else { return }
+        session.pages[index].ocrText = ocrText
+        currentSession = session
+    }
+    
     func clearSession() {
         currentSession = nil
     }

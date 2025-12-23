@@ -95,6 +95,8 @@ struct PagesView: View {
                                 
                                 PageThumbnail(page: page, index: index, onEdit: {
                                     selectedPageIndex = index
+                                }, onDelete: {
+                                    sessionStore.removePage(at: index)
                                 })
                                     .opacity(isDragging ? 0.4 : 1.0)
                                     .scaleEffect(isDragging ? 0.95 : (isTargeted ? 1.05 : 1.0))
@@ -172,16 +174,29 @@ struct PageThumbnail: View {
     let page: ScanPage
     let index: Int
     let onEdit: () -> Void
+    let onDelete: () -> Void
+    
+    @State private var showDeleteConfirmation = false
+    
+    private var adjustedImage: UIImage? {
+        guard let image = page.uiImage else { return nil }
+        return ImageProcessingService.applyAdjustments(
+            to: image,
+            brightness: page.brightness,
+            contrast: page.contrast,
+            rotation: page.rotation
+        )
+    }
     
     var body: some View {
         VStack(spacing: 8) {
-            ZStack(alignment: .topTrailing) {
+            ZStack {
                 RoundedRectangle(cornerRadius: NBTheme.corner)
                     .fill(NBColors.warmCard)
                     .aspectRatio(0.75, contentMode: .fit)
                     .overlay(
                         Group {
-                            if let image = page.uiImage {
+                            if let image = adjustedImage {
                                 Image(uiImage: image)
                                     .resizable()
                                     .scaledToFill()
@@ -198,24 +213,59 @@ struct PageThumbnail: View {
                             .stroke(NBColors.ink, lineWidth: NBTheme.stroke)
                     )
                 
-                // Edit button
-                Button {
-                    onEdit()
-                } label: {
-                    Image(systemName: "pencil")
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundStyle(NBColors.ink)
-                        .frame(width: 32, height: 32)
-                        .background(NBColors.yellow)
-                        .clipShape(Circle())
-                        .overlay(Circle().stroke(NBColors.ink, lineWidth: NBTheme.stroke))
+                // Delete button (top-left)
+                VStack {
+                    HStack {
+                        Button {
+                            showDeleteConfirmation = true
+                        } label: {
+                            Image(systemName: "trash.fill")
+                                .font(.system(size: 13, weight: .bold))
+                                .foregroundStyle(NBColors.ink)
+                                .frame(width: 32, height: 32)
+                                .background(Color(red: 1.0, green: 0.6, blue: 0.6))
+                                .clipShape(Circle())
+                                .overlay(Circle().stroke(NBColors.ink, lineWidth: NBTheme.stroke))
+                        }
+                        .offset(x: -8, y: -8)
+                        
+                        Spacer()
+                    }
+                    Spacer()
                 }
-                .offset(x: 8, y: -8)
+                
+                // Edit button (top-right)
+                VStack {
+                    HStack {
+                        Spacer()
+                        Button {
+                            onEdit()
+                        } label: {
+                            Image(systemName: "pencil")
+                                .font(.system(size: 14, weight: .bold))
+                                .foregroundStyle(NBColors.ink)
+                                .frame(width: 32, height: 32)
+                                .background(NBColors.yellow)
+                                .clipShape(Circle())
+                                .overlay(Circle().stroke(NBColors.ink, lineWidth: NBTheme.stroke))
+                        }
+                        .offset(x: 8, y: -8)
+                    }
+                    Spacer()
+                }
             }
             
             Text("Page \(index + 1)")
                 .font(NBType.caption)
                 .foregroundStyle(NBColors.ink)
+        }
+        .alert("Delete Page?", isPresented: $showDeleteConfirmation) {
+            Button("Cancel", role: .cancel) { }
+            Button("Delete", role: .destructive) {
+                onDelete()
+            }
+        } message: {
+            Text("Are you sure you want to delete page \(index + 1)? This action cannot be undone.")
         }
     }
 }
@@ -225,6 +275,16 @@ struct PageThumbnailPreview: View {
     let page: ScanPage
     let index: Int
     
+    private var adjustedImage: UIImage? {
+        guard let image = page.uiImage else { return nil }
+        return ImageProcessingService.applyAdjustments(
+            to: image,
+            brightness: page.brightness,
+            contrast: page.contrast,
+            rotation: page.rotation
+        )
+    }
+    
     var body: some View {
         VStack(spacing: 8) {
             RoundedRectangle(cornerRadius: NBTheme.corner)
@@ -232,7 +292,7 @@ struct PageThumbnailPreview: View {
                 .frame(width: 100, height: 133)
                 .overlay(
                     Group {
-                        if let image = page.uiImage {
+                        if let image = adjustedImage {
                             Image(uiImage: image)
                                 .resizable()
                                 .scaledToFill()
@@ -272,7 +332,7 @@ struct PageThumbnailPreview: View {
 
 #Preview("PageThumbnail") {
     let page = ScanPage(uiImage: UIImage(systemName: "doc.text"))
-    PageThumbnail(page: page, index: 0, onEdit: {})
+    PageThumbnail(page: page, index: 0, onEdit: {}, onDelete: {})
         .frame(width: 150)
         .padding()
 }
