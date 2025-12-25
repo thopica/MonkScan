@@ -1,0 +1,287 @@
+import SwiftUI
+
+struct DocumentDetailView: View {
+    let documentId: UUID
+    @EnvironmentObject var libraryStore: LibraryStore
+    @Environment(\.dismiss) private var dismiss
+    @State private var document: ScanDocument?
+    @State private var showEditMetadata = false
+    @State private var showDeleteAlert = false
+    @State private var selectedPageIndex: Int?
+    @State private var showShareSheet = false
+    
+    var body: some View {
+        Group {
+            if let document = document {
+                documentDetailContent(for: document)
+            } else {
+                ProgressView()
+                    .onAppear {
+                        loadDocument()
+                    }
+            }
+        }
+    }
+    
+    @ViewBuilder
+    private func documentDetailContent(for document: ScanDocument) -> some View {
+        ZStack {
+            NBColors.paper.ignoresSafeArea()
+            
+            VStack(spacing: 0) {
+                // Top bar
+                HStack {
+                    Button {
+                        dismiss()
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: "chevron.left")
+                            Text("Library")
+                        }
+                        .font(NBType.body)
+                        .foregroundStyle(NBColors.ink)
+                    }
+                    
+                    Spacer()
+                    
+                    // Actions menu
+                    Menu {
+                        Button {
+                            showEditMetadata = true
+                        } label: {
+                            Label("Edit Name & Tags", systemImage: "pencil")
+                        }
+                        
+                        Button {
+                            showShareSheet = true
+                        } label: {
+                            Label("Export & Share", systemImage: "square.and.arrow.up")
+                        }
+                        
+                        Divider()
+                        
+                        Button(role: .destructive) {
+                            showDeleteAlert = true
+                        } label: {
+                            Label("Delete Document", systemImage: "trash")
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis.circle")
+                            .font(.system(size: 22))
+                            .foregroundStyle(NBColors.ink)
+                    }
+                }
+                .padding(.horizontal, NBTheme.padding)
+                .padding(.vertical, 12)
+                
+                // Document info
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 16) {
+                        // Title and metadata
+                        NBCard {
+                            VStack(alignment: .leading, spacing: 12) {
+                                Text(document.title)
+                                    .font(NBType.header)
+                                    .foregroundStyle(NBColors.ink)
+                                
+                                HStack {
+                                    Image(systemName: "doc.text")
+                                        .font(.system(size: 14))
+                                    Text("\(document.pages.count) page\(document.pages.count == 1 ? "" : "s")")
+                                        .font(NBType.caption)
+                                    
+                                    Text("•")
+                                        .font(NBType.caption)
+                                    
+                                    Text(formattedDate(document.updatedAt))
+                                        .font(NBType.caption)
+                                }
+                                .foregroundStyle(NBColors.mutedInk)
+                                
+                                if !document.tags.isEmpty {
+                                    Divider()
+                                        .background(NBColors.ink.opacity(0.2))
+                                    
+                                    FlowLayout(spacing: 8) {
+                                        ForEach(document.tags, id: \.self) { tag in
+                                            Text(tag)
+                                                .font(NBType.caption)
+                                                .foregroundStyle(NBColors.ink)
+                                                .padding(.horizontal, 10)
+                                                .padding(.vertical, 6)
+                                                .background(NBColors.yellow.opacity(0.5))
+                                                .clipShape(Capsule())
+                                                .overlay(Capsule().stroke(NBColors.ink, lineWidth: 1))
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        
+                        // Pages grid
+                        Text("Pages")
+                            .font(NBType.body)
+                            .foregroundStyle(NBColors.ink)
+                            .padding(.horizontal, NBTheme.padding)
+                        
+                        LazyVGrid(columns: [
+                            GridItem(.flexible(), spacing: 16),
+                            GridItem(.flexible(), spacing: 16),
+                        ], spacing: 16) {
+                            ForEach(Array(document.pages.enumerated()), id: \.element.id) { index, page in
+                                DocumentPageThumbnail(page: page, index: index) {
+                                    selectedPageIndex = index
+                                }
+                            }
+                        }
+                        .padding(.horizontal, NBTheme.padding)
+                        .padding(.bottom, 100)
+                    }
+                }
+            }
+        }
+        .navigationBarHidden(true)
+        .navigationDestination(item: $selectedPageIndex) { index in
+            SavedPageEditView(documentId: documentId, pageIndex: index)
+        }
+        .sheet(isPresented: $showEditMetadata, onDismiss: {
+            loadDocument() // Reload after editing
+        }) {
+            EditMetadataView(document: document)
+        }
+        .sheet(isPresented: $showShareSheet) {
+            ShareSheet(activityItems: [createPDFPlaceholder(for: document)])
+        }
+        .alert("Delete Document?", isPresented: $showDeleteAlert) {
+            Button("Cancel", role: .cancel) { }
+            Button("Delete", role: .destructive) {
+                Task {
+                    try? await libraryStore.deleteDocument(document.id)
+                    dismiss()
+                }
+            }
+        } message: {
+            Text("Are you sure you want to delete '\(document.title)'? This action cannot be undone.")
+        }
+    }
+    
+    // MARK: - Load Document
+    private func loadDocument() {
+        Task {
+            if let docs = try? await libraryStore.documentStore.loadAll() {
+                document = docs.first { $0.id == documentId }
+            }
+        }
+    }
+    
+    // MARK: - Helpers
+    private func formattedDate(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .short
+        return formatter.string(from: date)
+    }
+    
+    private func createPDFPlaceholder(for document: ScanDocument) -> URL {
+        // Placeholder - will implement real PDF generation later
+        let fileName = "\(document.title).txt"
+        let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent(fileName)
+        let content = "Document: \(document.title)\nPages: \(document.pages.count)\nTags: \(document.tags.joined(separator: ", "))"
+        try? content.write(to: tempURL, atomically: true, encoding: .utf8)
+        return tempURL
+    }
+}
+
+// MARK: - Document Page Thumbnail
+struct DocumentPageThumbnail: View {
+    let page: ScanPage
+    let index: Int
+    let onTap: () -> Void
+    
+    private var adjustedImage: UIImage? {
+        guard let image = page.uiImage else { return nil }
+        return ImageProcessingService.applyAdjustments(
+            to: image,
+            brightness: page.brightness,
+            contrast: page.contrast,
+            rotation: page.rotation
+        )
+    }
+    
+    var body: some View {
+        Button(action: onTap) {
+            VStack(spacing: 8) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: NBTheme.corner)
+                        .fill(NBColors.warmCard)
+                        .aspectRatio(0.75, contentMode: .fit)
+                        .overlay(
+                            Group {
+                                if let image = adjustedImage {
+                                    Image(uiImage: image)
+                                        .resizable()
+                                        .scaledToFill()
+                                } else {
+                                    Image(systemName: "doc.text")
+                                        .font(.system(size: 32))
+                                        .foregroundStyle(NBColors.mutedInk)
+                                }
+                            }
+                        )
+                        .clipShape(RoundedRectangle(cornerRadius: NBTheme.corner))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: NBTheme.corner)
+                                .stroke(NBColors.ink, lineWidth: NBTheme.stroke)
+                        )
+                    
+                    // Edit indicator
+                    VStack {
+                        HStack {
+                            Spacer()
+                            Image(systemName: "pencil.circle.fill")
+                                .font(.system(size: 20, weight: .bold))
+                                .foregroundStyle(NBColors.yellow)
+                                .background(
+                                    Circle()
+                                        .fill(NBColors.ink)
+                                        .frame(width: 24, height: 24)
+                                )
+                        }
+                        .padding(8)
+                        Spacer()
+                    }
+                }
+                
+                Text("Page \(index + 1)")
+                    .font(NBType.caption)
+                    .foregroundStyle(NBColors.ink)
+            }
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+#Preview {
+    let documentStore = try! FileDocumentStore()
+    let libraryStore = LibraryStore(documentStore: documentStore)
+    
+    // Create a sample document and save it
+    let sampleDoc = ScanDocument(
+        title: "Sample Document",
+        tags: ["Receipt", "Business", "2024"],
+        pages: [
+            ScanPage(uiImage: UIImage(systemName: "doc.text.fill")),
+            ScanPage(uiImage: UIImage(systemName: "doc.text.fill"))
+        ]
+    )
+    
+    Task {
+        try? await libraryStore.saveDocument(sampleDoc)
+    }
+    
+    return NavigationStack {
+        DocumentDetailView(documentId: sampleDoc.id)
+            .environmentObject(libraryStore)
+    }
+}
+

@@ -158,7 +158,7 @@ struct PagesView: View {
             }
         }
         .navigationDestination(isPresented: $showExport) {
-            ExportView()
+            ExportView(sessionStore: sessionStore)
         }
         .navigationDestination(item: $selectedPageIndex) { index in
             if index < pages.count {

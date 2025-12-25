@@ -1,10 +1,20 @@
 import SwiftUI
 
 struct ExportView: View {
+    @ObservedObject var sessionStore: ScanSessionStore
+    @EnvironmentObject var libraryStore: LibraryStore
     @Environment(\.dismiss) private var dismiss
     @State private var selectedFormat: ExportFormat = .pdf
-    @State private var documentTitle = "Scan 2024-12-20"
+    @State private var documentTitle: String
+    @State private var selectedTags: [String] = []
+    @State private var showTagPicker = false
     @State private var showDoneAlert = false
+    @State private var isSaving = false
+    
+    init(sessionStore: ScanSessionStore) {
+        self.sessionStore = sessionStore
+        _documentTitle = State(initialValue: sessionStore.currentSession?.draftTitle ?? "Scan")
+    }
     
     enum ExportFormat: String, CaseIterable {
         case pdf = "PDF"
@@ -18,6 +28,10 @@ struct ExportView: View {
             case .text: return "doc.text"
             }
         }
+    }
+    
+    private var pages: [ScanPage] {
+        sessionStore.currentSession?.pages ?? []
     }
     
     var body: some View {
@@ -38,7 +52,7 @@ struct ExportView: View {
                     
                     Spacer()
                     
-                    Text("Export")
+                    Text("Save Document")
                         .font(NBType.header)
                         .foregroundStyle(NBColors.ink)
                     
@@ -67,20 +81,33 @@ struct ExportView: View {
                             }
                         }
                         
-                        // Format selection
+                        // Tags
                         NBCard {
                             VStack(alignment: .leading, spacing: 12) {
-                                Text("Export Format")
-                                    .font(NBType.body)
-                                    .foregroundStyle(NBColors.ink)
+                                HStack {
+                                    Text("Tags")
+                                        .font(NBType.body)
+                                        .foregroundStyle(NBColors.ink)
+                                    Spacer()
+                                    Button {
+                                        showTagPicker = true
+                                    } label: {
+                                        Image(systemName: "plus.circle.fill")
+                                            .font(.system(size: 20))
+                                            .foregroundStyle(NBColors.ink)
+                                    }
+                                }
                                 
-                                HStack(spacing: 12) {
-                                    ForEach(ExportFormat.allCases, id: \.self) { format in
-                                        FormatButton(
-                                            format: format,
-                                            isSelected: selectedFormat == format
-                                        ) {
-                                            selectedFormat = format
+                                if selectedTags.isEmpty {
+                                    Text("No tags added")
+                                        .font(NBType.caption)
+                                        .foregroundStyle(NBColors.mutedInk)
+                                } else {
+                                    FlowLayout(spacing: 8) {
+                                        ForEach(selectedTags, id: \.self) { tag in
+                                            TagChip(text: tag) {
+                                                selectedTags.removeAll { $0 == tag }
+                                            }
                                         }
                                     }
                                 }
@@ -94,109 +121,134 @@ struct ExportView: View {
                                     .font(NBType.body)
                                     .foregroundStyle(NBColors.ink)
                                 
-                                HStack(spacing: 12) {
-                                    ForEach(1...3, id: \.self) { i in
-                                        RoundedRectangle(cornerRadius: 8)
-                                            .fill(NBColors.paper)
-                                            .aspectRatio(0.75, contentMode: .fit)
-                                            .overlay(
-                                                Text("\(i)")
-                                                    .font(NBType.caption)
-                                                    .foregroundStyle(NBColors.mutedInk)
-                                            )
+                                ScrollView(.horizontal, showsIndicators: false) {
+                                    HStack(spacing: 12) {
+                                        ForEach(Array(pages.enumerated()), id: \.element.id) { index, page in
+                                            ZStack {
+                                                RoundedRectangle(cornerRadius: 8)
+                                                    .fill(NBColors.paper)
+                                                    .frame(width: 60, height: 80)
+                                                
+                                                if let image = page.uiImage {
+                                                    let adjusted = ImageProcessingService.applyAdjustments(
+                                                        to: image,
+                                                        brightness: page.brightness,
+                                                        contrast: page.contrast,
+                                                        rotation: page.rotation
+                                                    )
+                                                    Image(uiImage: adjusted)
+                                                        .resizable()
+                                                        .scaledToFill()
+                                                        .frame(width: 60, height: 80)
+                                                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                                                }
+                                            }
                                             .overlay(
                                                 RoundedRectangle(cornerRadius: 8)
                                                     .stroke(NBColors.ink, lineWidth: 1)
                                             )
+                                            .overlay(
+                                                VStack {
+                                                    Spacer()
+                                                    Text("\(index + 1)")
+                                                        .font(NBType.caption)
+                                                        .foregroundStyle(NBColors.ink)
+                                                        .padding(4)
+                                                        .background(NBColors.yellow.opacity(0.9))
+                                                        .clipShape(Circle())
+                                                }
+                                                .padding(4)
+                                            )
+                                        }
                                     }
-                                    Spacer()
                                 }
-                                .frame(height: 80)
                                 
-                                Text("3 pages • \(selectedFormat.rawValue)")
+                                Text("\(pages.count) page\(pages.count == 1 ? "" : "s")")
                                     .font(NBType.caption)
                                     .foregroundStyle(NBColors.mutedInk)
                             }
                         }
                         
-                        // OCR text preview (for Text export)
-                        if selectedFormat == .text {
-                            NBCard {
-                                VStack(alignment: .leading, spacing: 12) {
-                                    HStack {
-                                        Text("OCR Text")
-                                            .font(NBType.body)
-                                            .foregroundStyle(NBColors.ink)
-                                        Spacer()
-                                        NBChip(text: "Preview", filled: false)
-                                    }
-                                    
-                                    Text("Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua...")
-                                        .font(NBType.regular)
-                                        .foregroundStyle(NBColors.mutedInk)
-                                        .lineLimit(4)
-                                }
-                            }
-                        }
-                        
                         Spacer().frame(height: 20)
                         
-                        // Export buttons
-                        VStack(spacing: 12) {
-                            // Share button
-                            Button {
-                                showDoneAlert = true
-                            } label: {
-                                HStack {
-                                    Image(systemName: "square.and.arrow.up")
-                                    Text("Share")
+                        // Save button
+                        Button {
+                            saveDocument()
+                        } label: {
+                            HStack {
+                                if isSaving {
+                                    ProgressView()
+                                        .progressViewStyle(CircularProgressViewStyle(tint: NBColors.ink))
+                                    Text("Saving...")
+                                } else {
+                                    Image(systemName: "checkmark.circle.fill")
+                                    Text("Save to Library")
                                 }
-                                .font(NBType.body)
-                                .foregroundStyle(NBColors.ink)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 16)
-                                .background(NBColors.yellow)
-                                .clipShape(RoundedRectangle(cornerRadius: NBTheme.corner))
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: NBTheme.corner)
-                                        .stroke(NBColors.ink, lineWidth: NBTheme.stroke)
-                                )
                             }
-                            .buttonStyle(.plain)
-                            
-                            // Save to Files button
-                            Button {
-                                showDoneAlert = true
-                            } label: {
-                                HStack {
-                                    Image(systemName: "folder")
-                                    Text("Save to Files")
-                                }
-                                .font(NBType.body)
-                                .foregroundStyle(NBColors.ink)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 16)
-                                .background(NBColors.warmCard)
-                                .clipShape(RoundedRectangle(cornerRadius: NBTheme.corner))
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: NBTheme.corner)
-                                        .stroke(NBColors.ink, lineWidth: NBTheme.stroke)
-                                )
-                            }
-                            .buttonStyle(.plain)
+                            .font(NBType.body)
+                            .foregroundStyle(NBColors.ink)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 16)
+                            .background(NBColors.yellow)
+                            .clipShape(RoundedRectangle(cornerRadius: NBTheme.corner))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: NBTheme.corner)
+                                    .stroke(NBColors.ink, lineWidth: NBTheme.stroke)
+                            )
                         }
+                        .buttonStyle(.plain)
+                        .disabled(isSaving || documentTitle.isEmpty || pages.isEmpty)
                     }
                     .padding(.bottom, 40)
                 }
             }
         }
         .navigationBarHidden(true)
-        .alert("Exported!", isPresented: $showDoneAlert) {
-            Button("Done") {
-                // In A3+ this will save to store and navigate to Library
+        .sheet(isPresented: $showTagPicker) {
+            TagPickerView(selectedTags: $selectedTags)
+        }
+        .alert("Document Saved!", isPresented: $showDoneAlert) {
+            Button("Go to Library") {
+                // Pop all navigation and go to library
+                dismiss()
+                dismiss() // Dismiss ExportView and PagesView
             }
         } message: {
-            Text("Your document has been exported successfully.")
+            Text("'\(documentTitle)' has been saved to your library.")
+        }
+    }
+    
+    // MARK: - Save Document
+    private func saveDocument() {
+        guard !documentTitle.isEmpty, !pages.isEmpty else { return }
+        
+        isSaving = true
+        
+        Task {
+            do {
+                // Create document from session
+                var session = sessionStore.currentSession!
+                session.draftTitle = documentTitle
+                session.draftTags = selectedTags
+                let document = ScanDocument(from: session)
+                
+                // Save to library
+                try await libraryStore.saveDocument(document)
+                
+                // Clear session
+                sessionStore.clearSession()
+                
+                await MainActor.run {
+                    isSaving = false
+                    showDoneAlert = true
+                }
+            } catch {
+                await MainActor.run {
+                    isSaving = false
+                    // TODO: Show error alert
+                    print("Failed to save document: \(error)")
+                }
+            }
         }
     }
 }
@@ -228,9 +280,214 @@ struct FormatButton: View {
     }
 }
 
+// MARK: - Tag Chip
+struct TagChip: View {
+    let text: String
+    let onRemove: () -> Void
+    
+    var body: some View {
+        HStack(spacing: 4) {
+            Text(text)
+                .font(NBType.caption)
+                .foregroundStyle(NBColors.ink)
+            
+            Button {
+                onRemove()
+            } label: {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.system(size: 14))
+                    .foregroundStyle(NBColors.ink.opacity(0.6))
+            }
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(NBColors.yellow.opacity(0.5))
+        .clipShape(Capsule())
+        .overlay(Capsule().stroke(NBColors.ink, lineWidth: 1))
+    }
+}
+
+// MARK: - Tag Picker View
+struct TagPickerView: View {
+    @Binding var selectedTags: [String]
+    @Environment(\.dismiss) private var dismiss
+    @State private var customTag = ""
+    
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                NBColors.paper.ignoresSafeArea()
+                
+                ScrollView {
+                    VStack(spacing: 20) {
+                        // Custom tag input
+                        NBCard {
+                            VStack(alignment: .leading, spacing: 12) {
+                                Text("Add Custom Tag")
+                                    .font(NBType.body)
+                                    .foregroundStyle(NBColors.ink)
+                                
+                                HStack {
+                                    NBTextField(placeholder: "Enter tag name...", text: $customTag)
+                                    
+                                    Button {
+                                        if !customTag.isEmpty && !selectedTags.contains(customTag) {
+                                            selectedTags.append(customTag)
+                                            customTag = ""
+                                        }
+                                    } label: {
+                                        Image(systemName: "plus.circle.fill")
+                                            .font(.system(size: 28))
+                                            .foregroundStyle(NBColors.yellow)
+                                            .overlay(
+                                                Circle()
+                                                    .stroke(NBColors.ink, lineWidth: 2)
+                                            )
+                                    }
+                                    .disabled(customTag.isEmpty)
+                                }
+                            }
+                        }
+                        
+                        // Predefined tags by category
+                        ForEach(TagService.predefinedTags) { category in
+                            NBCard {
+                                VStack(alignment: .leading, spacing: 12) {
+                                    Text(category.name)
+                                        .font(NBType.body)
+                                        .foregroundStyle(NBColors.ink)
+                                    
+                                    FlowLayout(spacing: 8) {
+                                        ForEach(category.tags, id: \.self) { tag in
+                                            TagSelectionButton(
+                                                tag: tag,
+                                                isSelected: selectedTags.contains(tag)
+                                            ) {
+                                                if selectedTags.contains(tag) {
+                                                    selectedTags.removeAll { $0 == tag }
+                                                } else {
+                                                    selectedTags.append(tag)
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    .padding(.bottom, 40)
+                }
+            }
+            .navigationTitle("Select Tags")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") {
+                        dismiss()
+                    }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") {
+                        dismiss()
+                    }
+                    .fontWeight(.bold)
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Tag Selection Button
+struct TagSelectionButton: View {
+    let tag: String
+    let isSelected: Bool
+    let action: () -> Void
+    
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 4) {
+                if isSelected {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 12))
+                }
+                Text(tag)
+                    .font(NBType.caption)
+            }
+            .foregroundStyle(NBColors.ink)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(isSelected ? NBColors.yellow : NBColors.warmCard)
+            .clipShape(Capsule())
+            .overlay(Capsule().stroke(NBColors.ink, lineWidth: 1))
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+// MARK: - Flow Layout (for wrapping tags)
+struct FlowLayout: Layout {
+    var spacing: CGFloat = 8
+    
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let result = FlowResult(in: proposal.replacingUnspecifiedDimensions().width, subviews: subviews, spacing: spacing)
+        return result.size
+    }
+    
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        let result = FlowResult(in: bounds.width, subviews: subviews, spacing: spacing)
+        for (index, subview) in subviews.enumerated() {
+            subview.place(at: CGPoint(x: bounds.minX + result.positions[index].x, y: bounds.minY + result.positions[index].y), proposal: .unspecified)
+        }
+    }
+    
+    struct FlowResult {
+        var size: CGSize = .zero
+        var positions: [CGPoint] = []
+        
+        init(in maxWidth: CGFloat, subviews: Subviews, spacing: CGFloat) {
+            var currentX: CGFloat = 0
+            var currentY: CGFloat = 0
+            var lineHeight: CGFloat = 0
+            
+            for subview in subviews {
+                let size = subview.sizeThatFits(.unspecified)
+                
+                if currentX + size.width > maxWidth && currentX > 0 {
+                    currentX = 0
+                    currentY += lineHeight + spacing
+                    lineHeight = 0
+                }
+                
+                positions.append(CGPoint(x: currentX, y: currentY))
+                lineHeight = max(lineHeight, size.height)
+                currentX += size.width + spacing
+            }
+            
+            self.size = CGSize(width: maxWidth, height: currentY + lineHeight)
+        }
+    }
+}
+
+#Preview("TagPickerView") {
+    TagPickerView(selectedTags: .constant(["Receipt", "Business"]))
+}
+
 #Preview {
-    NavigationStack {
-        ExportView()
+    let store = ScanSessionStore()
+    let _ = {
+        store.startNewSession()
+        if let image = UIImage(systemName: "doc.text.fill") {
+            store.addPage(image)
+            store.addPage(image)
+        }
+    }()
+    
+    let documentStore = try! FileDocumentStore()
+    let libraryStore = LibraryStore(documentStore: documentStore)
+    
+    return NavigationStack {
+        ExportView(sessionStore: store)
+            .environmentObject(libraryStore)
     }
 }
 
