@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct AppTabView: View {
-    @State private var selectedTab: Tab = .library
+    @StateObject private var tabCoordinator = TabCoordinator()
     
     enum Tab {
         case library
@@ -10,7 +10,7 @@ struct AppTabView: View {
     }
     
     var body: some View {
-        TabView(selection: $selectedTab) {
+        TabView(selection: $tabCoordinator.selectedTab) {
             LibraryView()
                 .tabItem {
                     Label("Library", systemImage: "doc.text")
@@ -30,6 +30,7 @@ struct AppTabView: View {
                 .tag(Tab.settings)
         }
         .tint(NBColors.ink)
+        .environmentObject(tabCoordinator)
     }
 }
 

@@ -1,33 +1,19 @@
 import SwiftUI
+import UIKit
 
-struct ExportView: View {
+struct SaveDocumentView: View {
     @ObservedObject var sessionStore: ScanSessionStore
     @EnvironmentObject var libraryStore: LibraryStore
+    @EnvironmentObject var tabCoordinator: TabCoordinator
     @Environment(\.dismiss) private var dismiss
-    @State private var selectedFormat: ExportFormat = .pdf
     @State private var documentTitle: String
     @State private var selectedTags: [String] = []
     @State private var showTagPicker = false
-    @State private var showDoneAlert = false
     @State private var isSaving = false
     
     init(sessionStore: ScanSessionStore) {
         self.sessionStore = sessionStore
         _documentTitle = State(initialValue: sessionStore.currentSession?.draftTitle ?? "Scan")
-    }
-    
-    enum ExportFormat: String, CaseIterable {
-        case pdf = "PDF"
-        case jpg = "JPG"
-        case text = "Text"
-        
-        var icon: String {
-            switch self {
-            case .pdf: return "doc.fill"
-            case .jpg: return "photo"
-            case .text: return "doc.text"
-            }
-        }
     }
     
     private var pages: [ScanPage] {
@@ -77,7 +63,7 @@ struct ExportView: View {
                                     .font(NBType.body)
                                     .foregroundStyle(NBColors.ink)
                                 
-                                NBTextField(placeholder: "Enter title...", text: $documentTitle)
+                                NBTextField(placeholder: "Enter title...", systemIcon: nil, text: $documentTitle)
                             }
                         }
                         
@@ -171,9 +157,9 @@ struct ExportView: View {
                         
                         Spacer().frame(height: 20)
                         
-                        // Save button
+                        // Save to Library button
                         Button {
-                            saveDocument()
+                            saveDocument(andShare: false)
                         } label: {
                             HStack {
                                 if isSaving {
@@ -181,7 +167,7 @@ struct ExportView: View {
                                         .progressViewStyle(CircularProgressViewStyle(tint: NBColors.ink))
                                     Text("Saving...")
                                 } else {
-                                    Image(systemName: "checkmark.circle.fill")
+                                    Image(systemName: "folder.badge.plus")
                                     Text("Save to Library")
                                 }
                             }
@@ -207,19 +193,10 @@ struct ExportView: View {
         .sheet(isPresented: $showTagPicker) {
             TagPickerView(selectedTags: $selectedTags)
         }
-        .alert("Document Saved!", isPresented: $showDoneAlert) {
-            Button("Go to Library") {
-                // Pop all navigation and go to library
-                dismiss()
-                dismiss() // Dismiss ExportView and PagesView
-            }
-        } message: {
-            Text("'\(documentTitle)' has been saved to your library.")
-        }
     }
     
     // MARK: - Save Document
-    private func saveDocument() {
+    private func saveDocument(andShare: Bool, format: ExportShareFormat = .pdf) {
         guard !documentTitle.isEmpty, !pages.isEmpty else { return }
         
         isSaving = true
@@ -235,12 +212,22 @@ struct ExportView: View {
                 // Save to library
                 try await libraryStore.saveDocument(document)
                 
+                // Store pages for sharing before clearing session
+                let pagesToShare = session.pages
+                
                 // Clear session
                 sessionStore.clearSession()
                 
                 await MainActor.run {
                     isSaving = false
-                    showDoneAlert = true
+                    
+                    if andShare {
+                        // Share the document
+                        shareDocument(title: documentTitle, pages: pagesToShare, format: format)
+                    } else {
+                        // Return to Library tab
+                        returnToLibrary()
+                    }
                 }
             } catch {
                 await MainActor.run {
@@ -251,32 +238,80 @@ struct ExportView: View {
             }
         }
     }
-}
-
-// MARK: - Format Button
-struct FormatButton: View {
-    let format: ExportView.ExportFormat
-    let isSelected: Bool
-    let action: () -> Void
     
-    var body: some View {
-        Button(action: action) {
-            VStack(spacing: 8) {
-                Image(systemName: format.icon)
-                    .font(.system(size: 24))
-                Text(format.rawValue)
-                    .font(NBType.caption)
+    private func returnToLibrary() {
+        // Switch to Library tab first to avoid showing intermediate views
+        tabCoordinator.switchTo(.library)
+        
+        // Then dismiss both SaveDocumentView and PagesView
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            dismiss()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                dismiss()
             }
-            .foregroundStyle(NBColors.ink)
-            .frame(width: 70, height: 70)
-            .background(isSelected ? NBColors.yellow : NBColors.warmCard)
-            .clipShape(RoundedRectangle(cornerRadius: NBTheme.corner))
-            .overlay(
-                RoundedRectangle(cornerRadius: NBTheme.corner)
-                    .stroke(NBColors.ink, lineWidth: NBTheme.stroke)
-            )
         }
-        .buttonStyle(.plain)
+    }
+    
+    private func shareDocument(title: String, pages: [ScanPage], format: ExportShareFormat) {
+        let exportName = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !exportName.isEmpty else {
+            returnToLibrary()
+            return
+        }
+        
+        let items: [Any]
+        switch format {
+        case .pdf:
+            guard let url = ExportService.generatePDF(from: pages, title: exportName) else {
+                print("Failed to generate PDF")
+                returnToLibrary()
+                return
+            }
+            items = [url]
+        case .images:
+            let urls = ExportService.generateJPGs(from: pages, title: exportName)
+            guard !urls.isEmpty else {
+                print("Failed to generate images")
+                returnToLibrary()
+                return
+            }
+            items = urls
+        case .text:
+            guard let url = ExportService.generateTextFile(from: pages, title: exportName) else {
+                print("Failed to generate text file")
+                returnToLibrary()
+                return
+            }
+            items = [url]
+        }
+        
+        // Show share sheet
+        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+           let window = windowScene.windows.first,
+           let rootVC = window.rootViewController {
+            
+            // Find the topmost presented view controller
+            var topVC = rootVC
+            while let presented = topVC.presentedViewController {
+                topVC = presented
+            }
+            
+            let activityVC = UIActivityViewController(activityItems: items, applicationActivities: nil)
+            
+            // For iPad
+            if let popover = activityVC.popoverPresentationController {
+                popover.sourceView = topVC.view
+                popover.sourceRect = CGRect(x: topVC.view.bounds.midX, y: topVC.view.bounds.midY, width: 0, height: 0)
+                popover.permittedArrowDirections = []
+            }
+            
+            activityVC.completionWithItemsHandler = { _, _, _, _ in
+                // Return to Library tab after sharing
+                self.returnToLibrary()
+            }
+            
+            topVC.present(activityVC, animated: true)
+        }
     }
 }
 
@@ -312,6 +347,7 @@ struct TagPickerView: View {
     @Binding var selectedTags: [String]
     @Environment(\.dismiss) private var dismiss
     @State private var customTag = ""
+    @State private var availableTags: [String] = []
     
     var body: some View {
         NavigationStack {
@@ -331,9 +367,19 @@ struct TagPickerView: View {
                                     NBTextField(placeholder: "Enter tag name...", text: $customTag)
                                     
                                     Button {
-                                        if !customTag.isEmpty && !selectedTags.contains(customTag) {
-                                            selectedTags.append(customTag)
-                                            customTag = ""
+                                        if !customTag.isEmpty {
+                                            let trimmedTag = customTag.trimmingCharacters(in: .whitespacesAndNewlines)
+                                            if !trimmedTag.isEmpty {
+                                                // Add to TagService (persisted globally)
+                                                TagService.addTag(trimmedTag)
+                                                // Add to selected tags for this document
+                                                if !selectedTags.contains(trimmedTag) {
+                                                    selectedTags.append(trimmedTag)
+                                                }
+                                                customTag = ""
+                                                // Reload available tags
+                                                availableTags = TagService.loadTags()
+                                            }
                                         }
                                     } label: {
                                         Image(systemName: "plus.circle.fill")
@@ -349,29 +395,54 @@ struct TagPickerView: View {
                             }
                         }
                         
-                        // Predefined tags by category
-                        ForEach(TagService.predefinedTags) { category in
+                        // All saved custom tags
+                        if !availableTags.isEmpty {
                             NBCard {
                                 VStack(alignment: .leading, spacing: 12) {
-                                    Text(category.name)
+                                    Text("All Tags")
                                         .font(NBType.body)
                                         .foregroundStyle(NBColors.ink)
                                     
                                     FlowLayout(spacing: 8) {
-                                        ForEach(category.tags, id: \.self) { tag in
-                                            TagSelectionButton(
+                                        ForEach(availableTags, id: \.self) { tag in
+                                            TagWithDeleteButton(
                                                 tag: tag,
-                                                isSelected: selectedTags.contains(tag)
-                                            ) {
-                                                if selectedTags.contains(tag) {
+                                                isSelected: selectedTags.contains(tag),
+                                                onSelect: {
+                                                    if selectedTags.contains(tag) {
+                                                        selectedTags.removeAll { $0 == tag }
+                                                    } else {
+                                                        selectedTags.append(tag)
+                                                    }
+                                                },
+                                                onDelete: {
+                                                    // Remove from global tags
+                                                    TagService.deleteTag(tag)
+                                                    // Remove from selected tags
                                                     selectedTags.removeAll { $0 == tag }
-                                                } else {
-                                                    selectedTags.append(tag)
+                                                    // Reload available tags
+                                                    availableTags = TagService.loadTags()
                                                 }
-                                            }
+                                            )
                                         }
                                     }
                                 }
+                            }
+                        } else {
+                            NBCard {
+                                VStack(spacing: 8) {
+                                    Image(systemName: "tag")
+                                        .font(.system(size: 40))
+                                        .foregroundStyle(NBColors.mutedInk)
+                                    Text("No tags yet")
+                                        .font(NBType.body)
+                                        .foregroundStyle(NBColors.mutedInk)
+                                    Text("Create your first custom tag above")
+                                        .font(NBType.caption)
+                                        .foregroundStyle(NBColors.mutedInk)
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 20)
                             }
                         }
                     }
@@ -393,34 +464,47 @@ struct TagPickerView: View {
                     .fontWeight(.bold)
                 }
             }
+            .onAppear {
+                availableTags = TagService.loadTags()
+            }
         }
     }
 }
 
-// MARK: - Tag Selection Button
-struct TagSelectionButton: View {
+// MARK: - Tag With Delete Button
+struct TagWithDeleteButton: View {
     let tag: String
     let isSelected: Bool
-    let action: () -> Void
+    let onSelect: () -> Void
+    let onDelete: () -> Void
     
     var body: some View {
-        Button(action: action) {
-            HStack(spacing: 4) {
-                if isSelected {
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 12))
+        HStack(spacing: 4) {
+            Button(action: onSelect) {
+                HStack(spacing: 4) {
+                    if isSelected {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 12))
+                    }
+                    Text(tag)
+                        .font(NBType.caption)
                 }
-                Text(tag)
-                    .font(NBType.caption)
+                .foregroundStyle(NBColors.ink)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(isSelected ? NBColors.yellow : NBColors.warmCard)
+                .clipShape(Capsule())
+                .overlay(Capsule().stroke(NBColors.ink, lineWidth: 1))
             }
-            .foregroundStyle(NBColors.ink)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            .background(isSelected ? NBColors.yellow : NBColors.warmCard)
-            .clipShape(Capsule())
-            .overlay(Capsule().stroke(NBColors.ink, lineWidth: 1))
+            .buttonStyle(.plain)
+            
+            Button(action: onDelete) {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.system(size: 16))
+                    .foregroundStyle(NBColors.ink.opacity(0.6))
+            }
+            .buttonStyle(.plain)
         }
-        .buttonStyle(.plain)
     }
 }
 
@@ -486,7 +570,7 @@ struct FlowLayout: Layout {
     let libraryStore = LibraryStore(documentStore: documentStore)
     
     return NavigationStack {
-        ExportView(sessionStore: store)
+        SaveDocumentView(sessionStore: store)
             .environmentObject(libraryStore)
     }
 }

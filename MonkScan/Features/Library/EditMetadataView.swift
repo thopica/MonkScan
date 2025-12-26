@@ -22,14 +22,46 @@ struct EditMetadataView: View {
                 
                 ScrollView {
                     VStack(spacing: 20) {
-                        // Document title
+                        // Document title and info
                         NBCard {
                             VStack(alignment: .leading, spacing: 12) {
                                 Text("Document Name")
                                     .font(NBType.body)
                                     .foregroundStyle(NBColors.ink)
                                 
-                                NBTextField(placeholder: "Enter title...", text: $documentTitle)
+                                NBTextField(placeholder: "Enter title...", systemIcon: nil, text: $documentTitle)
+                                
+                                // Document info
+                                Divider()
+                                    .background(NBColors.ink.opacity(0.2))
+                                    .padding(.vertical, 4)
+                                
+                                HStack {
+                                    Text("Pages:")
+                                        .font(NBType.caption)
+                                        .foregroundStyle(NBColors.mutedInk)
+                                    Text("\(document.pages.count)")
+                                        .font(NBType.caption)
+                                        .foregroundStyle(NBColors.ink)
+                                }
+                                
+                                HStack {
+                                    Text("Created:")
+                                        .font(NBType.caption)
+                                        .foregroundStyle(NBColors.mutedInk)
+                                    Text(formattedDate(document.createdAt))
+                                        .font(NBType.caption)
+                                        .foregroundStyle(NBColors.ink)
+                                }
+                                
+                                HStack {
+                                    Text("Last Modified:")
+                                        .font(NBType.caption)
+                                        .foregroundStyle(NBColors.mutedInk)
+                                    Text(formattedDate(document.updatedAt))
+                                        .font(NBType.caption)
+                                        .foregroundStyle(NBColors.ink)
+                                }
                             }
                         }
                         
@@ -62,42 +94,6 @@ struct EditMetadataView: View {
                                             }
                                         }
                                     }
-                                }
-                            }
-                        }
-                        
-                        // Document info (read-only)
-                        NBCard {
-                            VStack(alignment: .leading, spacing: 12) {
-                                Text("Document Info")
-                                    .font(NBType.body)
-                                    .foregroundStyle(NBColors.ink)
-                                
-                                HStack {
-                                    Text("Pages:")
-                                        .font(NBType.caption)
-                                        .foregroundStyle(NBColors.mutedInk)
-                                    Text("\(document.pages.count)")
-                                        .font(NBType.caption)
-                                        .foregroundStyle(NBColors.ink)
-                                }
-                                
-                                HStack {
-                                    Text("Created:")
-                                        .font(NBType.caption)
-                                        .foregroundStyle(NBColors.mutedInk)
-                                    Text(formattedDate(document.createdAt))
-                                        .font(NBType.caption)
-                                        .foregroundStyle(NBColors.ink)
-                                }
-                                
-                                HStack {
-                                    Text("Last Modified:")
-                                        .font(NBType.caption)
-                                        .foregroundStyle(NBColors.mutedInk)
-                                    Text(formattedDate(document.updatedAt))
-                                        .font(NBType.caption)
-                                        .foregroundStyle(NBColors.ink)
                                 }
                             }
                         }

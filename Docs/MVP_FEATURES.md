@@ -4,6 +4,13 @@ Goal: Ship a beautiful, intuitive, production-ready scanner app.
 Core flow: Library → Scan → Crop/Perspective → Enhance → Pages → Export
 No backend. Offline-first.
 
+## 🎯 Current Status (Updated: Dec 26, 2025)
+**Track A:** ✅ COMPLETE (All UI screens built)
+**Track B:** 🔄 ~90% COMPLETE (Core features done, polish in progress)
+
+### Next Priority:
+**B5 - Export Testing:** Verify PDF, JPG, and Text exports work correctly from the app
+
 Locked decisions:
 - Navigation: Bottom tab bar (Library / Scan / Settings)
 - Capture: Camera + Photo import
@@ -174,55 +181,60 @@ TRACK A DONE when:
 Goal: Implement production-ready features step-by-step.
 UI is complete, now building real functionality one feature at a time.
 
-## B1 — Photo import (real)
+## B1 — Photo import (real) ✅ COMPLETE
 Implement PhotoImportService using PhotosPicker.
 Replace stub in dependency injection.
+**Status:** PhotosPicker integrated in ScanView. Multiple photo import works.
 Acceptance:
-- Selecting a photo creates a real page and continues flow.
+- ✅ Selecting a photo creates a real page and continues flow.
 
-## B2 — Document scanner (real)
+## B2 — Document scanner (real) ✅ COMPLETE
 Integrate VNDocumentCameraViewController into ScanView.
 - Vision automatically handles: document detection, cropping, perspective correction, and enhancement
 - Handle document scanner results (multiple pages)
 - Remove/update CropView and EnhanceView (no longer needed in flow)
 - New flow: ScanView → PagesView → ExportView
 
+**Status:** DocumentScannerView using VNDocumentCameraViewController is fully integrated.
 Acceptance:
-- Document scanner opens and captures pages.
-- Returns processed images (already cropped and enhanced).
-- Multiple pages can be captured in one session.
+- ✅ Document scanner opens and captures pages.
+- ✅ Returns processed images (already cropped and enhanced).
+- ✅ Multiple pages can be captured in one session.
 
-## B3 — Pages management (real behaviors)
+## B3 — Pages management (real behaviors) ✅ COMPLETE
 Implement:
 - reorder using SwiftUI drag
 - delete
 - rotate
 - add page returns to Scan and appends
 
+**Status:** PagesView has full drag/drop reordering, delete, and page editing capabilities.
 Acceptance:
-- Export order matches PagesView order.
+- ✅ Export order matches PagesView order.
 
-## B4 — OCR (real)
+## B4 — OCR (real) ✅ COMPLETE
 Implement OCRService using Vision text recognition.
 Store:
 - per-page text (optional)
 - aggregated doc text for search and export
 
+**Status:** OCRService implemented using Vision framework. OCR results viewable in PageEditView.
 Acceptance:
-- Export Text contains OCR output.
-- Library search matches OCR.
+- ✅ Export Text contains OCR output.
+- ✅ Library search matches OCR.
 
-## B5 — Export (real)
+## B5 — Export (real) ⚠️ NEEDS TESTING
 Implement ExportService:
 - PDF export (multi-page)
 - JPG export (share multiple images)
 - Text export (.txt)
 - Share sheet + Save to Files
 
+**Status:** Export UI exists in ExportView. Need to verify real export implementations work.
 Acceptance:
-- Exports work from simulator device.
+- ⏳ Exports work from simulator device. (NEEDS TESTING)
 
-## B6 — Persistence (FileManager + JSON) (real)
+## B6 — Persistence (FileManager + JSON) (real) ✅ COMPLETE
 Implement DocumentStore:
 - FileDocumentStore:
   - directory per document id
@@ -231,21 +243,47 @@ Implement DocumentStore:
 - Load on app start
 - CRUD: rename, delete, update tags, update page order
 
+**Status:** FileDocumentStore fully implemented with file-based persistence.
 Acceptance:
-- Close app → reopen → documents remain.
-- Delete removes files.
+- ✅ Close app → reopen → documents remain.
+- ✅ Delete removes files.
 
-## B7 — Polish (still MVP, but production-ready)
-- Permissions UX (camera/photos)
-- Empty states (no docs / no pages)
-- Error handling (failed export, failed OCR, permission denied)
-- Performance: avoid keeping huge images in memory (use downsampling)
-- Basic accessibility: button sizes, labels
+## B8 — Tag Management (Production-ready) ✅ COMPLETE
+**Added:** Custom tag system for document organization.
+- Custom tags with global persistence (UserDefaults)
+- 14 default common tags initialized on first launch
+- Add/delete tags globally
+- Full-width tag picker with delete functionality
+- Works in ExportView and EditMetadataView
+
+Acceptance:
+- ✅ Users can create and delete custom tags
+- ✅ Tags persist across app launches
+- ✅ Tags searchable in Library
+
+## B7 — Polish (still MVP, but production-ready) 🔄 IN PROGRESS
+- Permissions UX (camera/photos) ⏳
+- Empty states (no docs / no pages) ✅ DONE
+- Error handling (failed export, failed OCR, permission denied) ⏳
+- Performance: avoid keeping huge images in memory (use downsampling) ⏳
+- Basic accessibility: button sizes, labels ⏳
+
+**Current Status:** Empty states implemented. Permissions, error handling, and performance optimizations pending.
+
+TRACK B STATUS:
+- ✅ B1: Photo import - COMPLETE
+- ✅ B2: Document scanner - COMPLETE  
+- ✅ B3: Pages management - COMPLETE
+- ✅ B4: OCR - COMPLETE
+- ⚠️ B5: Export - NEEDS TESTING
+- ✅ B6: Persistence - COMPLETE
+- 🔄 B7: Polish - IN PROGRESS
+- ✅ B8: Tag Management - COMPLETE
 
 TRACK B DONE when:
-- Full scan pipeline works with real data.
-- Exports and persistence are reliable.
-- App feels production-ready.
+- Full scan pipeline works with real data. ✅
+- Exports and persistence are reliable. ⚠️ (Export needs testing)
+- App feels production-ready. 🔄 (Polish in progress)
 
 ---
 

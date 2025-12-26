@@ -24,11 +24,6 @@ struct LibraryView: View {
                                 ProgressView()
                                     .scaleEffect(0.8)
                             }
-                            NBIconButton(systemName: "arrow.clockwise", filled: false) {
-                                Task {
-                                    await libraryStore.loadDocuments()
-                                }
-                            }
                         }
                     )
                 )

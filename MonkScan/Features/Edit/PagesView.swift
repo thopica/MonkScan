@@ -4,7 +4,10 @@ import UniformTypeIdentifiers
 struct PagesView: View {
     @ObservedObject var sessionStore: ScanSessionStore
     @Environment(\.dismiss) private var dismiss
-    @State private var showExport = false
+    @State private var showSaveDocument = false
+    @State private var showShareSheet = false
+    @State private var shareDocumentName = ""
+    @State private var shareFormat: ExportShareFormat = .pdf
     @State private var draggingPage: ScanPage?
     @State private var targetedPageId: UUID?
     @State private var selectedPageIndex: Int?
@@ -39,19 +42,40 @@ struct PagesView: View {
                     
                     Spacer()
                     
-                    Button {
-                        showExport = true
-                    } label: {
-                        Text("Export")
-                            .font(NBType.body)
-                            .foregroundStyle(NBColors.ink)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 6)
-                            .background(NBColors.yellow)
-                            .clipShape(Capsule())
-                            .overlay(Capsule().stroke(NBColors.ink, lineWidth: NBTheme.stroke))
+                    HStack(spacing: 12) {
+                        // Share button (secondary)
+                        Button {
+                            shareDocumentName = generateDefaultTitle()
+                            shareFormat = .pdf
+                            showShareSheet = true
+                        } label: {
+                            Image(systemName: "square.and.arrow.up")
+                                .font(.system(size: 18, weight: .semibold))
+                                .foregroundStyle(NBColors.ink)
+                                .padding(8)
+                                .background(NBColors.warmCard)
+                                .clipShape(Circle())
+                                .overlay(Circle().stroke(NBColors.ink, lineWidth: NBTheme.stroke))
+                        }
+                        .disabled(pages.isEmpty)
+                        
+                        // Save button (primary)
+                        Button {
+                            showSaveDocument = true
+                        } label: {
+                            Text("Save")
+                                .font(NBType.body)
+                                .foregroundStyle(NBColors.ink)
+                                .lineLimit(1)
+                                .fixedSize()
+                                .padding(.horizontal, 24)
+                                .padding(.vertical, 10)
+                                .background(NBColors.yellow)
+                                .clipShape(Capsule())
+                                .overlay(Capsule().stroke(NBColors.ink, lineWidth: NBTheme.stroke))
+                        }
+                        .disabled(pages.isEmpty)
                     }
-                    .disabled(pages.isEmpty)
                 }
                 .padding(.horizontal, NBTheme.padding)
                 .padding(.vertical, 12)
@@ -157,15 +181,94 @@ struct PagesView: View {
                 }
             }
         }
-        .navigationDestination(isPresented: $showExport) {
-            ExportView(sessionStore: sessionStore)
+        .navigationDestination(isPresented: $showSaveDocument) {
+            SaveDocumentView(sessionStore: sessionStore)
         }
         .navigationDestination(item: $selectedPageIndex) { index in
             if index < pages.count {
                 PageEditView(page: pages[index], pageIndex: index, sessionStore: sessionStore)
             }
         }
+        .sheet(isPresented: $showShareSheet) {
+            ShareDocumentSheet(
+                documentName: $shareDocumentName,
+                selectedFormat: $shareFormat,
+                pages: pages,
+                onShare: { name, format in
+                    shareDocument(name: name, format: format)
+                }
+            )
+        }
         .navigationBarHidden(true)
+    }
+    
+    // MARK: - Helper Functions
+    private func generateDefaultTitle() -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd HHmm"
+        return "Scan \(formatter.string(from: Date()))"
+    }
+    
+    private func shareDocument(name: String, format: ExportShareFormat) {
+        let exportName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !exportName.isEmpty else { return }
+        
+        // Generate export items
+        let items: [Any]
+        switch format {
+        case .pdf:
+            guard let url = ExportService.generatePDF(from: pages, title: exportName) else {
+                print("Failed to generate PDF")
+                showShareSheet = false
+                return
+            }
+            items = [url]
+        case .images:
+            let urls = ExportService.generateJPGs(from: pages, title: exportName)
+            guard !urls.isEmpty else {
+                print("Failed to generate images")
+                showShareSheet = false
+                return
+            }
+            items = urls
+        case .text:
+            guard let url = ExportService.generateTextFile(from: pages, title: exportName) else {
+                print("Failed to generate text file")
+                showShareSheet = false
+                return
+            }
+            items = [url]
+        }
+        
+        // Present iOS share sheet FIRST, then dismiss our sheet in completion
+        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+           let window = windowScene.windows.first,
+           let rootVC = window.rootViewController {
+            
+            // Find the topmost presented view controller
+            var topVC = rootVC
+            while let presented = topVC.presentedViewController {
+                topVC = presented
+            }
+            
+            let activityVC = UIActivityViewController(activityItems: items, applicationActivities: nil)
+            
+            // For iPad
+            if let popover = activityVC.popoverPresentationController {
+                popover.sourceView = topVC.view
+                popover.sourceRect = CGRect(x: topVC.view.bounds.midX, y: topVC.view.bounds.midY, width: 0, height: 0)
+                popover.permittedArrowDirections = []
+            }
+            
+            // Dismiss our sheet after share sheet is presented or dismissed
+            activityVC.completionWithItemsHandler = { _, _, _, _ in
+                DispatchQueue.main.async {
+                    self.showShareSheet = false
+                }
+            }
+            
+            topVC.present(activityVC, animated: true)
+        }
     }
 }
 

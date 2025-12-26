@@ -9,6 +9,7 @@ struct DocumentDetailView: View {
     @State private var showDeleteAlert = false
     @State private var selectedPageIndex: Int?
     @State private var showShareSheet = false
+    @State private var shareFormat: ExportShareFormat = .pdf
     
     var body: some View {
         Group {
@@ -150,7 +151,17 @@ struct DocumentDetailView: View {
             EditMetadataView(document: document)
         }
         .sheet(isPresented: $showShareSheet) {
-            ShareSheet(activityItems: [createPDFPlaceholder(for: document)])
+            if let doc = self.document {
+                ShareDocumentSheet(
+                    documentName: .constant(doc.title),
+                    selectedFormat: $shareFormat,
+                    pages: doc.pages,
+                    allowNameEditing: false,
+                    onShare: { name, format in
+                        shareDocument(document: doc, format: format)
+                    }
+                )
+            }
         }
         .alert("Delete Document?", isPresented: $showDeleteAlert) {
             Button("Cancel", role: .cancel) { }
@@ -182,13 +193,68 @@ struct DocumentDetailView: View {
         return formatter.string(from: date)
     }
     
-    private func createPDFPlaceholder(for document: ScanDocument) -> URL {
-        // Placeholder - will implement real PDF generation later
-        let fileName = "\(document.title).txt"
-        let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent(fileName)
-        let content = "Document: \(document.title)\nPages: \(document.pages.count)\nTags: \(document.tags.joined(separator: ", "))"
-        try? content.write(to: tempURL, atomically: true, encoding: .utf8)
-        return tempURL
+    private func shareDocument(document: ScanDocument, format: ExportShareFormat) {
+        let exportName = document.title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !exportName.isEmpty else {
+            showShareSheet = false
+            return
+        }
+        
+        // Generate export items
+        let items: [Any]
+        switch format {
+        case .pdf:
+            guard let url = ExportService.generatePDF(from: document.pages, title: exportName) else {
+                print("Failed to generate PDF")
+                showShareSheet = false
+                return
+            }
+            items = [url]
+        case .images:
+            let urls = ExportService.generateJPGs(from: document.pages, title: exportName)
+            guard !urls.isEmpty else {
+                print("Failed to generate images")
+                showShareSheet = false
+                return
+            }
+            items = urls
+        case .text:
+            guard let url = ExportService.generateTextFile(from: document.pages, title: exportName) else {
+                print("Failed to generate text file")
+                showShareSheet = false
+                return
+            }
+            items = [url]
+        }
+        
+        // Present iOS share sheet
+        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+           let window = windowScene.windows.first,
+           let rootVC = window.rootViewController {
+            
+            // Find the topmost presented view controller
+            var topVC = rootVC
+            while let presented = topVC.presentedViewController {
+                topVC = presented
+            }
+            
+            let activityVC = UIActivityViewController(activityItems: items, applicationActivities: nil)
+            
+            // For iPad
+            if let popover = activityVC.popoverPresentationController {
+                popover.sourceView = topVC.view
+                popover.sourceRect = CGRect(x: topVC.view.bounds.midX, y: topVC.view.bounds.midY, width: 0, height: 0)
+                popover.permittedArrowDirections = []
+            }
+            
+            activityVC.completionWithItemsHandler = { _, _, _, _ in
+                DispatchQueue.main.async {
+                    self.showShareSheet = false
+                }
+            }
+            
+            topVC.present(activityVC, animated: true)
+        }
     }
 }
 
