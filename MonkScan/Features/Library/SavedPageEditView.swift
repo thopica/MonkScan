@@ -13,6 +13,12 @@ struct SavedPageEditView: View {
     @State private var isSaving = false
     @State private var hasChanges = false
     @State private var showDiscardAlert = false
+    @State private var showOCRResults = false
+    @State private var isProcessingOCR = false
+    @State private var ocrText: String?
+    @State private var ocrError: String?
+    
+    private let ocrService: OCRService = VisionOCRService()
     
     private var page: ScanPage? {
         guard let doc = document,
@@ -155,7 +161,25 @@ struct SavedPageEditView: View {
                         }
                         .buttonStyle(.plain)
                         
-                        EditToolButton(icon: "slider.horizontal.3", label: "Adjust")
+                        Button {
+                            performOCR()
+                        } label: {
+                            if isProcessingOCR {
+                                VStack(spacing: 6) {
+                                    ProgressView()
+                                        .progressViewStyle(CircularProgressViewStyle(tint: NBColors.yellow))
+                                        .scaleEffect(0.8)
+                                    Text("OCR")
+                                        .font(NBType.caption)
+                                        .foregroundStyle(NBColors.paper.opacity(0.5))
+                                }
+                                .frame(minWidth: 60)
+                            } else {
+                                EditToolButton(icon: "doc.text.viewfinder", label: "OCR")
+                            }
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(isProcessingOCR)
                     }
                     .padding(.vertical, 20)
                     .padding(.horizontal, NBTheme.padding)
@@ -167,8 +191,23 @@ struct SavedPageEditView: View {
             }
         }
         .navigationBarHidden(true)
+        .toolbar(.hidden, for: .tabBar)
         .onAppear {
             loadDocument()
+        }
+        .sheet(isPresented: $showOCRResults) {
+            if let ocrText = ocrText {
+                OCRResultsView(ocrText: ocrText)
+            }
+        }
+        .alert("OCR Error", isPresented: .constant(ocrError != nil)) {
+            Button("OK") {
+                ocrError = nil
+            }
+        } message: {
+            if let error = ocrError {
+                Text(error)
+            }
         }
         .alert("Discard Changes?", isPresented: $showDiscardAlert) {
             Button("Keep Editing", role: .cancel) { }
@@ -245,6 +284,46 @@ struct SavedPageEditView: View {
             contrast: contrast,
             rotation: pendingRotation
         )
+    }
+    
+    // MARK: - OCR
+    private func performOCR() {
+        guard let page = page, let image = page.uiImage else {
+            ocrError = "No image available"
+            return
+        }
+        
+        isProcessingOCR = true
+        ocrError = nil
+        
+        Task {
+            do {
+                // Apply current adjustments to image before OCR
+                let processedImage = adjustedImage(from: image)
+                let recognizedText = try await ocrService.recognizeText(from: processedImage)
+                
+                await MainActor.run {
+                    ocrText = recognizedText
+                    isProcessingOCR = false
+                    showOCRResults = true
+                    
+                    // Update the document with OCR text
+                    if var doc = document,
+                       pageIndex >= 0,
+                       pageIndex < doc.pages.count {
+                        doc.pages[pageIndex].ocrText = recognizedText
+                        Task {
+                            try? await libraryStore.updateDocument(doc)
+                        }
+                    }
+                }
+            } catch {
+                await MainActor.run {
+                    isProcessingOCR = false
+                    ocrError = error.localizedDescription
+                }
+            }
+        }
     }
 }
 

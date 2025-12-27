@@ -143,8 +143,6 @@ struct PageEditView: View {
                      }
                      .buttonStyle(.plain)
                     
-                    EditToolButton(icon: "slider.horizontal.3", label: "Adjust")
-                    
                     Button {
                         performOCR()
                     } label: {
@@ -171,6 +169,7 @@ struct PageEditView: View {
             }
         }
         .navigationBarHidden(true)
+        .toolbar(.hidden, for: .tabBar)
         .sheet(isPresented: $showOCRResults) {
             if let ocrText = ocrText {
                 OCRResultsView(ocrText: ocrText)

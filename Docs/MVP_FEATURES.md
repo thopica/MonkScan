@@ -6,10 +6,15 @@ No backend. Offline-first.
 
 ## 🎯 Current Status (Updated: Dec 26, 2025)
 **Track A:** ✅ COMPLETE (All UI screens built)
-**Track B:** 🔄 ~90% COMPLETE (Core features done, polish in progress)
+**Track B:** ✅ ~95% COMPLETE (All core features done, polish remaining)
+
+### Latest Updates:
+- ✅ **Export System Redesign**: Complete workflow overhaul with format selection (PDF/Images/Text)
+- ✅ **Tag Management**: Custom tags with persistence and global delete
+- ✅ **Shared Components**: ShareDocumentSheet reused across app for consistency
 
 ### Next Priority:
-**B5 - Export Testing:** Verify PDF, JPG, and Text exports work correctly from the app
+**B7 - Polish:** Permissions UX, error handling, and performance optimizations
 
 Locked decisions:
 - Navigation: Bottom tab bar (Library / Scan / Settings)
@@ -223,16 +228,28 @@ Acceptance:
 - ✅ Export Text contains OCR output.
 - ✅ Library search matches OCR.
 
-## B5 — Export (real) ⚠️ NEEDS TESTING
+## B5 — Export (real) ✅ COMPLETE
 Implement ExportService:
 - PDF export (multi-page)
 - JPG export (share multiple images)
 - Text export (.txt)
 - Share sheet + Save to Files
 
-**Status:** Export UI exists in ExportView. Need to verify real export implementations work.
+**Status:** Full export system implemented with ExportService and ShareDocumentSheet component.
+- Format selection UI (PDF/Images/Text) in both new scans and existing documents
+- ExportService generates proper files (PDF with A4 sizing, multiple JPGs, OCR text)
+- iOS share sheet integration working
+- Consistent export experience across app
+
+**Workflow:**
+- PagesView: "Share" button → ShareDocumentSheet (name editable + format picker) → iOS share
+- PagesView: "Save" button → SaveDocumentView → Save to Library → Navigate to Library tab
+- DocumentDetailView: "Export & Share" → ShareDocumentSheet (name read-only + format picker) → iOS share
+
 Acceptance:
-- ⏳ Exports work from simulator device. (NEEDS TESTING)
+- ✅ Exports work from simulator device
+- ✅ PDF, Images (one per page), and Text formats all functional
+- ✅ Share sheet works from both new scans and existing documents
 
 ## B6 — Persistence (FileManager + JSON) (real) ✅ COMPLETE
 Implement DocumentStore:
@@ -275,14 +292,14 @@ TRACK B STATUS:
 - ✅ B2: Document scanner - COMPLETE  
 - ✅ B3: Pages management - COMPLETE
 - ✅ B4: OCR - COMPLETE
-- ⚠️ B5: Export - NEEDS TESTING
+- ✅ B5: Export - COMPLETE
 - ✅ B6: Persistence - COMPLETE
 - 🔄 B7: Polish - IN PROGRESS
 - ✅ B8: Tag Management - COMPLETE
 
 TRACK B DONE when:
-- Full scan pipeline works with real data. ✅
-- Exports and persistence are reliable. ⚠️ (Export needs testing)
+- Full scan pipeline works with real data. ✅ DONE
+- Exports and persistence are reliable. ✅ DONE
 - App feels production-ready. 🔄 (Polish in progress)
 
 ---
