@@ -117,27 +117,29 @@ struct DocumentDetailView: View {
                                     }
                                 }
                             }
+                            .frame(maxWidth: .infinity, alignment: .leading)
                         }
                         
-                        // Pages grid
-                        Text("Pages")
-                            .font(NBType.body)
-                            .foregroundStyle(NBColors.ink)
-                            .padding(.horizontal, NBTheme.padding)
-                        
-                        LazyVGrid(columns: [
-                            GridItem(.flexible(), spacing: 16),
-                            GridItem(.flexible(), spacing: 16),
-                        ], spacing: 16) {
-                            ForEach(Array(document.pages.enumerated()), id: \.element.id) { index, page in
-                                DocumentPageThumbnail(page: page, index: index) {
-                                    selectedPageIndex = index
+                        // Pages section
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("Pages")
+                                .font(NBType.body)
+                                .foregroundStyle(NBColors.ink)
+                            
+                            LazyVGrid(columns: [
+                                GridItem(.flexible(), spacing: 16),
+                                GridItem(.flexible(), spacing: 16),
+                            ], spacing: 16) {
+                                ForEach(Array(document.pages.enumerated()), id: \.element.id) { index, page in
+                                    DocumentPageThumbnail(page: page, index: index) {
+                                        selectedPageIndex = index
+                                    }
                                 }
                             }
                         }
-                        .padding(.horizontal, NBTheme.padding)
                         .padding(.bottom, 100)
                     }
+                    .padding(.horizontal, NBTheme.padding)
                 }
             }
         }

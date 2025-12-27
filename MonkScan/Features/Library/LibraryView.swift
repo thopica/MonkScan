@@ -195,7 +195,6 @@ struct DocumentRow: View {
             RoundedRectangle(cornerRadius: NBTheme.corner)
                 .stroke(NBColors.ink, lineWidth: NBTheme.stroke)
         )
-        .padding(.horizontal, NBTheme.padding)
         .buttonStyle(.plain)
     }
 }
