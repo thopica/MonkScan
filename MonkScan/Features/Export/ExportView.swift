@@ -18,7 +18,7 @@ struct SaveDocumentView: View {
     
     init(sessionStore: ScanSessionStore) {
         self.sessionStore = sessionStore
-        _documentTitle = State(initialValue: sessionStore.currentSession?.draftTitle ?? "Scan")
+        _documentTitle = State(initialValue: sessionStore.currentSession?.draftTitle ?? "")
     }
     
     private var pages: [ScanPage] {

@@ -68,9 +68,7 @@ struct ScanSession {
     var pages: [ScanPage]
     
     init(draftTitle: String? = nil, draftTags: [String] = [], pages: [ScanPage] = []) {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd HHmm"
-        self.draftTitle = draftTitle ?? "Scan \(formatter.string(from: Date()))"
+        self.draftTitle = draftTitle ?? ""
         self.draftTags = draftTags
         self.pages = pages
     }

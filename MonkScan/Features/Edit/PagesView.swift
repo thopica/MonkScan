@@ -4,10 +4,12 @@ import UniformTypeIdentifiers
 struct PagesView: View {
     @ObservedObject var sessionStore: ScanSessionStore
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject var settingsStore: SettingsStore
     @State private var showSaveDocument = false
     @State private var showShareSheet = false
     @State private var shareDocumentName = ""
     @State private var shareFormat: ExportShareFormat = .pdf
+    @State private var hasInitializedShareDefaults = false
     @State private var draggingPage: ScanPage?
     @State private var targetedPageId: UUID?
     @State private var selectedPageIndex: Int?
@@ -48,8 +50,8 @@ struct PagesView: View {
                     HStack(spacing: 12) {
                         // Share button (secondary)
                         Button {
-                            shareDocumentName = generateDefaultTitle()
-                            shareFormat = .pdf
+                            shareDocumentName = defaultShareName()
+                            shareFormat = settingsStore.defaultExportFormat.exportShareFormat
                             showShareSheet = true
                         } label: {
                             Image(systemName: "square.and.arrow.up")
@@ -210,13 +212,21 @@ struct PagesView: View {
             Text(exportErrorMessage)
         }
         .navigationBarHidden(true)
+        .onAppear {
+            if !hasInitializedShareDefaults {
+                shareFormat = settingsStore.defaultExportFormat.exportShareFormat
+                hasInitializedShareDefaults = true
+            }
+        }
     }
     
     // MARK: - Helper Functions
-    private func generateDefaultTitle() -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd HHmm"
-        return "Scan \(formatter.string(from: Date()))"
+    private func defaultShareName() -> String {
+        if settingsStore.autoNaming {
+            return sessionStore.currentSession?.draftTitle ?? ""
+        } else {
+            return ""
+        }
     }
     
     private func shareDocument(name: String, format: ExportShareFormat) {

@@ -6,6 +6,7 @@ import UIKit
 
 struct ScanView: View {
     @StateObject private var sessionStore = ScanSessionStore()
+    @EnvironmentObject var settingsStore: SettingsStore
     @State private var showPages = false
     @State private var selectedPhotoItems: [PhotosPickerItem] = []
     @State private var showDocumentScanner = false
@@ -107,6 +108,12 @@ struct ScanView: View {
                 Button("OK", role: .cancel) { }
             } message: {
                 Text(activeAlert?.message ?? "")
+            }
+            .onAppear {
+                sessionStore.setAutoNamingEnabled(settingsStore.autoNaming)
+            }
+            .onChange(of: settingsStore.autoNaming) { _, newValue in
+                sessionStore.setAutoNamingEnabled(newValue)
             }
         }
     }

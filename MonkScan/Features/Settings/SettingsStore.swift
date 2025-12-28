@@ -9,17 +9,9 @@ final class SettingsStore: ObservableObject {
         case text = "Text"
     }
     
-    enum FlashSetting: String, CaseIterable, Codable {
-        case off = "Off"
-        case on = "On"
-        case auto = "Auto"
-    }
-    
     private enum Keys {
         static let defaultExportFormat = "settings.defaultExportFormat"
         static let autoNaming = "settings.autoNaming"
-        static let flashDefault = "settings.flashDefault"
-        static let autoCapture = "settings.autoCapture"
     }
     
     private let defaults: UserDefaults
@@ -30,14 +22,6 @@ final class SettingsStore: ObservableObject {
     
     @Published var autoNaming: Bool {
         didSet { defaults.set(autoNaming, forKey: Keys.autoNaming) }
-    }
-    
-    @Published var flashDefault: FlashSetting {
-        didSet { defaults.set(flashDefault.rawValue, forKey: Keys.flashDefault) }
-    }
-    
-    @Published var autoCapture: Bool {
-        didSet { defaults.set(autoCapture, forKey: Keys.autoCapture) }
     }
     
     init(userDefaults: UserDefaults = .standard) {
@@ -52,13 +36,16 @@ final class SettingsStore: ObservableObject {
             self.autoNaming = defaults.bool(forKey: Keys.autoNaming)
         }
         
-        let flashDefaultRaw = defaults.string(forKey: Keys.flashDefault) ?? FlashSetting.auto.rawValue
-        self.flashDefault = FlashSetting(rawValue: flashDefaultRaw) ?? .auto
-        
-        if defaults.object(forKey: Keys.autoCapture) == nil {
-            self.autoCapture = true
-        } else {
-            self.autoCapture = defaults.bool(forKey: Keys.autoCapture)
+    }
+}
+
+// MARK: - Helpers
+extension SettingsStore.ExportFormat {
+    var exportShareFormat: ExportShareFormat {
+        switch self {
+        case .pdf: return .pdf
+        case .jpg: return .images
+        case .text: return .text
         }
     }
 }

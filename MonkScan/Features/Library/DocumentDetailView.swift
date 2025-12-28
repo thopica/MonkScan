@@ -3,12 +3,14 @@ import SwiftUI
 struct DocumentDetailView: View {
     let documentId: UUID
     @EnvironmentObject var libraryStore: LibraryStore
+    @EnvironmentObject var settingsStore: SettingsStore
     @Environment(\.dismiss) private var dismiss
     @State private var document: ScanDocument?
     @State private var showEditMetadata = false
     @State private var selectedPageIndex: Int?
     @State private var showShareSheet = false
     @State private var shareFormat: ExportShareFormat = .pdf
+    @State private var hasInitializedShareDefaults = false
     
     @State private var activeAlert: ActiveAlert?
     
@@ -35,6 +37,12 @@ struct DocumentDetailView: View {
                     .onAppear {
                         loadDocument()
                     }
+            }
+        }
+        .onAppear {
+            if !hasInitializedShareDefaults {
+                shareFormat = settingsStore.defaultExportFormat.exportShareFormat
+                hasInitializedShareDefaults = true
             }
         }
     }

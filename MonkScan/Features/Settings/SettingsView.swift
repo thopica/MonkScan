@@ -37,17 +37,6 @@ struct SettingsView: View {
                                 SettingsToggleRow(title: "Auto Filename", subtitle: "Generate name from date", isOn: $settingsStore.autoNaming)
                                 
                                 Divider().background(NBColors.ink.opacity(0.2))
-                                
-                                SettingsRow(title: "Flash Default", value: settingsStore.flashDefault.rawValue) {
-                                    let all = SettingsStore.FlashSetting.allCases
-                                    if let idx = all.firstIndex(of: settingsStore.flashDefault) {
-                                        settingsStore.flashDefault = all[(idx + 1) % all.count]
-                                    }
-                                }
-                                
-                                Divider().background(NBColors.ink.opacity(0.2))
-                                
-                                SettingsToggleRow(title: "Auto Capture", subtitle: "Capture when document detected", isOn: $settingsStore.autoCapture)
                             }
                         }
                         

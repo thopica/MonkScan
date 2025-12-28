@@ -169,7 +169,6 @@ Use UserDefaults via a small SettingsStore:
 - default export format
 - OCR language (UI only for now)
 - auto filename toggle
-- flash default
 - auto-capture default
 
 Acceptance:
@@ -283,20 +282,14 @@ Goal: Make the existing Settings UI actually persist and affect app behavior.
 
 Sub-features (matching current Settings UI):
 - SettingsStore (UserDefaults) ✅ DONE
-  - Persist: default export format, auto filename toggle, flash default, auto-capture toggle
+  - Persist: default export format, auto filename toggle
   - Provide a single source of truth used by Scan/Pages/Export flows
-- Default export format ⏳
-  - Use as the default selection in ShareDocumentSheet / export flows
-- Auto filename ⏳
-  - Persist toggle
-  - When ON: use the date-based naming template as the default scan title and share/export name
-  - When OFF: default to a simpler “Scan” naming behavior
-- Flash default ⏳
-  - Persist selection
-  - If VNDocumentCameraViewController doesn’t support flash control: disable UI with explanatory text (or implement with a custom camera later)
-- Auto capture ⏳
-  - Persist toggle
-  - If VNDocumentCameraViewController doesn’t support auto-capture control: disable UI with explanatory text (or implement later)
+- Default export format ✅ DONE
+  - Use as the default selection in ShareDocumentSheet / export flows ✅ DONE
+- Auto filename ✅ DONE
+  - Persist toggle ✅ DONE
+  - When ON: use an incrementing default title (Scan 1, Scan 2, …); date/time stays in metadata/UI ✅ DONE
+  - When OFF: default to a simpler “Scan” naming behavior ✅ DONE
 - Rate MonkScan ⏳
   - Implement button to trigger App Store rating prompt (or open App Store page)
 
