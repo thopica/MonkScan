@@ -290,8 +290,8 @@ Sub-features (matching current Settings UI):
   - Persist toggle ✅ DONE
   - When ON: use an incrementing default title (Scan 1, Scan 2, …); date/time stays in metadata/UI ✅ DONE
   - When OFF: default to a simpler “Scan” naming behavior ✅ DONE
-- Rate MonkScan ⏳
-  - Implement button to trigger App Store rating prompt (or open App Store page)
+- Rate MonkScan ⏳ (defer until App Store listing exists)
+  - Implement button to trigger App Store rating prompt and/or open the App Store review page once we have the App Store ID/link
 
 Acceptance:
 - Settings values persist after app restart.

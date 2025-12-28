@@ -1,9 +1,11 @@
 import Foundation
 import UIKit
 import PDFKit
+import OSLog
 
 // MARK: - Export Service
 class ExportService {
+    private static let logger = Logger(subsystem: "com.thomas.MonkScan", category: "ExportService")
     
     // MARK: - Generate PDF from pages
     static func generatePDF(from pages: [ScanPage], title: String, imageURLProvider: ((ScanPage) -> URL?)? = nil) -> URL? {
@@ -68,7 +70,7 @@ class ExportService {
             
             return pdfURL
         } catch {
-            print("Failed to create PDF: \(error)")
+            Self.logger.error("Failed to create PDF: \(error.localizedDescription)")
             return nil
         }
     }
@@ -106,7 +108,7 @@ class ExportService {
                     try jpgData.write(to: fileURL)
                     urls.append(fileURL)
                 } catch {
-                    print("Failed to write JPG: \(error)")
+                    Self.logger.error("Failed to write JPG: \(error.localizedDescription)")
                 }
             }
         }
@@ -137,7 +139,7 @@ class ExportService {
             try fullText.write(to: textURL, atomically: true, encoding: .utf8)
             return textURL
         } catch {
-            print("Failed to create text file: \(error)")
+            Self.logger.error("Failed to create text file: \(error.localizedDescription)")
             return nil
         }
     }

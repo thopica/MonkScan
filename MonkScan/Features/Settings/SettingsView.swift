@@ -1,4 +1,5 @@
 import SwiftUI
+import StoreKit
 
 struct SettingsView: View {
     @EnvironmentObject var settingsStore: SettingsStore
@@ -60,7 +61,9 @@ struct SettingsView: View {
                                 Divider().background(NBColors.ink.opacity(0.2))
                                 
                                 Button {
-                                    // Rate app
+                                    if let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene {
+                                        SKStoreReviewController.requestReview(in: scene)
+                                    }
                                 } label: {
                                     HStack {
                                         Text("Rate MonkScan")

@@ -386,7 +386,9 @@ struct DocumentPageThumbnail: View {
 }
 
 #Preview {
-    let documentStore = try! FileDocumentStore()
+    guard let documentStore = try? FileDocumentStore() else {
+        fatalError("Preview: Could not create document store")
+    }
     let libraryStore = LibraryStore(documentStore: documentStore)
     
     // Create a sample document and save it

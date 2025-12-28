@@ -7,7 +7,15 @@ struct MonkScanApp: App {
     
     init() {
         // Initialize document store and library store
-        let documentStore = try! FileDocumentStore()
+        let documentStore: FileDocumentStore
+        do {
+            documentStore = try FileDocumentStore()
+        } catch {
+            // Log the error for debugging
+            print("FATAL: Could not initialize document storage: \(error)")
+            // For production, this is a critical failure - app cannot function without storage
+            fatalError("Failed to create document directory. Please check device storage and permissions.")
+        }
         _libraryStore = StateObject(wrappedValue: LibraryStore(documentStore: documentStore))
         _settingsStore = StateObject(wrappedValue: SettingsStore())
     }
