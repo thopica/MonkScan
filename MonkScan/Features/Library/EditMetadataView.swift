@@ -98,6 +98,7 @@ struct EditMetadataView: View {
                             }
                         }
                     }
+                    .padding(.horizontal, NBTheme.padding)
                     .padding(.bottom, 40)
                 }
             }
