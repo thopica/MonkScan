@@ -60,6 +60,7 @@ class VisionOCRService: OCRService {
             // Configure request for best accuracy
             request.recognitionLevel = .accurate
             request.usesLanguageCorrection = true
+            request.automaticallyDetectsLanguage = true
             
             // Perform the request
             let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])

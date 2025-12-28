@@ -1,23 +1,7 @@
 import SwiftUI
 
 struct SettingsView: View {
-    @State private var defaultFormat: ExportFormat = .pdf
-    @State private var ocrLanguage: String = "English"
-    @State private var autoNaming: Bool = true
-    @State private var flashDefault: FlashSetting = .auto
-    @State private var autoCapture: Bool = true
-    
-    enum ExportFormat: String, CaseIterable {
-        case pdf = "PDF"
-        case jpg = "JPG"
-        case text = "Text"
-    }
-    
-    enum FlashSetting: String, CaseIterable {
-        case off = "Off"
-        case on = "On"
-        case auto = "Auto"
-    }
+    @EnvironmentObject var settingsStore: SettingsStore
     
     var body: some View {
         NBScreen {
@@ -33,18 +17,12 @@ struct SettingsView: View {
                                     .font(NBType.header)
                                     .foregroundStyle(NBColors.ink)
                                 
-                                SettingsRow(title: "Default Format", value: defaultFormat.rawValue) {
+                                SettingsRow(title: "Default Format", value: settingsStore.defaultExportFormat.rawValue) {
                                     // Cycle through formats
-                                    let all = ExportFormat.allCases
-                                    if let idx = all.firstIndex(of: defaultFormat) {
-                                        defaultFormat = all[(idx + 1) % all.count]
+                                    let all = SettingsStore.ExportFormat.allCases
+                                    if let idx = all.firstIndex(of: settingsStore.defaultExportFormat) {
+                                        settingsStore.defaultExportFormat = all[(idx + 1) % all.count]
                                     }
-                                }
-                                
-                                Divider().background(NBColors.ink.opacity(0.2))
-                                
-                                SettingsRow(title: "OCR Language", value: ocrLanguage) {
-                                    // Would show picker
                                 }
                             }
                         }
@@ -56,20 +34,20 @@ struct SettingsView: View {
                                     .font(NBType.header)
                                     .foregroundStyle(NBColors.ink)
                                 
-                                SettingsToggleRow(title: "Auto Filename", subtitle: "Generate name from date", isOn: $autoNaming)
+                                SettingsToggleRow(title: "Auto Filename", subtitle: "Generate name from date", isOn: $settingsStore.autoNaming)
                                 
                                 Divider().background(NBColors.ink.opacity(0.2))
                                 
-                                SettingsRow(title: "Flash Default", value: flashDefault.rawValue) {
-                                    let all = FlashSetting.allCases
-                                    if let idx = all.firstIndex(of: flashDefault) {
-                                        flashDefault = all[(idx + 1) % all.count]
+                                SettingsRow(title: "Flash Default", value: settingsStore.flashDefault.rawValue) {
+                                    let all = SettingsStore.FlashSetting.allCases
+                                    if let idx = all.firstIndex(of: settingsStore.flashDefault) {
+                                        settingsStore.flashDefault = all[(idx + 1) % all.count]
                                     }
                                 }
                                 
                                 Divider().background(NBColors.ink.opacity(0.2))
                                 
-                                SettingsToggleRow(title: "Auto Capture", subtitle: "Capture when document detected", isOn: $autoCapture)
+                                SettingsToggleRow(title: "Auto Capture", subtitle: "Capture when document detected", isOn: $settingsStore.autoCapture)
                             }
                         }
                         
@@ -176,4 +154,5 @@ struct SettingsToggleRow: View {
 
 #Preview {
     SettingsView()
+        .environmentObject(SettingsStore())
 }

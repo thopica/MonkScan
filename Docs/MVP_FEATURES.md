@@ -282,14 +282,11 @@ Acceptance:
 Goal: Make the existing Settings UI actually persist and affect app behavior.
 
 Sub-features (matching current Settings UI):
-- SettingsStore (UserDefaults) ⏳
-  - Persist: default export format, OCR language, auto filename toggle, flash default, auto-capture toggle
+- SettingsStore (UserDefaults) ✅ DONE
+  - Persist: default export format, auto filename toggle, flash default, auto-capture toggle
   - Provide a single source of truth used by Scan/Pages/Export flows
 - Default export format ⏳
   - Use as the default selection in ShareDocumentSheet / export flows
-- OCR language ⏳
-  - Persist selection
-  - Apply to Vision OCR where supported (recognition languages) or clearly mark as “coming soon” if not wired
 - Auto filename ⏳
   - Persist toggle
   - When ON: use the date-based naming template as the default scan title and share/export name
