@@ -7,6 +7,9 @@ protocol DocumentStore {
     func loadAll() async throws -> [ScanDocument]
     func delete(_ documentId: UUID) async throws
     func update(_ document: ScanDocument) async throws
+    
+    /// Returns the on-disk URL for a saved page image, if available.
+    func imageFileURL(documentId: UUID, imagePath: String) -> URL?
 }
 
 // MARK: - Document Store Error
@@ -53,6 +56,11 @@ class FileDocumentStore: DocumentStore {
         }
     }
     
+    func imageFileURL(documentId: UUID, imagePath: String) -> URL? {
+        let docDirectory = baseDirectory.appendingPathComponent(documentId.uuidString, isDirectory: true)
+        return docDirectory.appendingPathComponent(imagePath)
+    }
+    
     // MARK: - Save Document
     func save(_ document: ScanDocument) async throws {
         let docDirectory = baseDirectory.appendingPathComponent(document.id.uuidString, isDirectory: true)
@@ -68,15 +76,32 @@ class FileDocumentStore: DocumentStore {
             var updatedPage = page
             
             // Save image if available and not already saved
-            if let image = page.uiImage, page.imagePath == nil {
+            if page.imagePath == nil {
                 let imageName = "\(page.id.uuidString).jpg"
                 let imagePath = docDirectory.appendingPathComponent(imageName)
                 
-                guard let imageData = image.jpegData(compressionQuality: 0.9) else {
-                    throw DocumentStoreError.imageSaveFailed("Failed to convert image to JPEG")
+                if let sourceURL = page.sourceImageURL, fileManager.fileExists(atPath: sourceURL.path) {
+                    // Prefer copying full-res source file to preserve quality
+                    if fileManager.fileExists(atPath: imagePath.path) {
+                        try? fileManager.removeItem(at: imagePath)
+                    }
+                    do {
+                        try fileManager.copyItem(at: sourceURL, to: imagePath)
+                    } catch {
+                        // Fall back to encoding from in-memory image if copy fails
+                        guard let image = page.uiImage,
+                              let imageData = image.jpegData(compressionQuality: 0.9) else {
+                            throw DocumentStoreError.imageSaveFailed("Failed to write image data")
+                        }
+                        try imageData.write(to: imagePath)
+                    }
+                } else {
+                    guard let image = page.uiImage,
+                          let imageData = image.jpegData(compressionQuality: 0.9) else {
+                        throw DocumentStoreError.imageSaveFailed("Failed to convert image to JPEG")
+                    }
+                    try imageData.write(to: imagePath)
                 }
-                
-                try imageData.write(to: imagePath)
                 updatedPage.imagePath = imageName
             }
             
@@ -123,17 +148,15 @@ class FileDocumentStore: DocumentStore {
             
             var document = try decoder.decode(ScanDocument.self, from: jsonData)
             
-            // Load images for pages
+            // Load images for pages (downsampled previews to keep memory low)
             var loadedPages: [ScanPage] = []
             for page in document.pages {
                 var loadedPage = page
                 
                 if let imagePath = page.imagePath {
                     let fullImagePath = docDir.appendingPathComponent(imagePath)
-                    if fileManager.fileExists(atPath: fullImagePath.path),
-                       let imageData = try? Data(contentsOf: fullImagePath),
-                       let image = UIImage(data: imageData) {
-                        loadedPage.uiImage = image
+                    if fileManager.fileExists(atPath: fullImagePath.path) {
+                        loadedPage.uiImage = ImageProcessingService.downsampledImage(at: fullImagePath, maxPixelSize: 2000)
                     }
                 }
                 
@@ -182,17 +205,15 @@ class FileDocumentStore: DocumentStore {
         
         var document = try decoder.decode(ScanDocument.self, from: jsonData)
         
-        // Load images
+        // Load images (downsampled previews to keep memory low)
         var loadedPages: [ScanPage] = []
         for page in document.pages {
             var loadedPage = page
             
             if let imagePath = page.imagePath {
                 let fullImagePath = docDirectory.appendingPathComponent(imagePath)
-                if fileManager.fileExists(atPath: fullImagePath.path),
-                   let imageData = try? Data(contentsOf: fullImagePath),
-                   let image = UIImage(data: imageData) {
-                    loadedPage.uiImage = image
+                if fileManager.fileExists(atPath: fullImagePath.path) {
+                    loadedPage.uiImage = ImageProcessingService.downsampledImage(at: fullImagePath, maxPixelSize: 2000)
                 }
             }
             

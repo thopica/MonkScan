@@ -278,20 +278,57 @@ Acceptance:
 - ✅ Tags persist across app launches
 - ✅ Tags searchable in Library
 
-## B7 — Polish (still MVP, but production-ready) 🔄 IN PROGRESS
-- Permissions UX (camera/photos) ⏳
+## B9 — Settings (Persistence + Behavior) ⏳
+Goal: Make the existing Settings UI actually persist and affect app behavior.
+
+Sub-features (matching current Settings UI):
+- SettingsStore (UserDefaults) ⏳
+  - Persist: default export format, OCR language, auto filename toggle, flash default, auto-capture toggle
+  - Provide a single source of truth used by Scan/Pages/Export flows
+- Default export format ⏳
+  - Use as the default selection in ShareDocumentSheet / export flows
+- OCR language ⏳
+  - Persist selection
+  - Apply to Vision OCR where supported (recognition languages) or clearly mark as “coming soon” if not wired
+- Auto filename ⏳
+  - Persist toggle
+  - When ON: use the date-based naming template as the default scan title and share/export name
+  - When OFF: default to a simpler “Scan” naming behavior
+- Flash default ⏳
+  - Persist selection
+  - If VNDocumentCameraViewController doesn’t support flash control: disable UI with explanatory text (or implement with a custom camera later)
+- Auto capture ⏳
+  - Persist toggle
+  - If VNDocumentCameraViewController doesn’t support auto-capture control: disable UI with explanatory text (or implement later)
+- Rate MonkScan ⏳
+  - Implement button to trigger App Store rating prompt (or open App Store page)
+
+Acceptance:
+- Settings values persist after app restart.
+- Default export format and auto filename visibly affect the scan/export flow.
+- Unsupported settings are clearly communicated (disabled + explanation) rather than silently doing nothing.
+
+## B7 — Polish (still MVP, but production-ready) ✅ DONE
+- Permissions UX (camera/photos) ✅ DONE
 - Empty states (no docs / no pages) ✅ DONE
-- Error handling (failed export, failed OCR, permission denied) ⏳
+- Error handling (failed export, failed OCR, permission denied) ✅ DONE
   - SaveDocumentView: show alerts for save/export failures (no print-only) ✅ DONE
   - PagesView: show alerts when export generation fails ✅ DONE
   - DocumentDetailView: show alerts when export generation fails ✅ DONE
   - EditMetadataView: show alert when metadata update fails ✅ DONE
   - SavedPageEditView: show alert when saving page edits fails ✅ DONE
   - OCRResultsView: show alert when exporting OCR text file fails ✅ DONE
-- Performance: avoid keeping huge images in memory (use downsampling) ⏳
-- Basic accessibility: button sizes, labels ⏳
+- Performance: avoid keeping huge images in memory (use downsampling) ✅ DONE
+  - Add downsample helper (CGImageSource thumbnail) ✅ DONE
+  - Library load uses downsampled previews (not full-res) ✅ DONE
+  - Export uses full-res on disk (PDF/JPG) ✅ DONE
+  - New scan sessions keep full-res temp files; UI uses downsampled previews ✅ DONE
+- Basic accessibility: button sizes, labels ✅ DONE
+  - Add accessibility labels/hints for icon-only buttons ✅ DONE
+  - Ensure minimum 44pt tap targets for key icon buttons ✅ DONE
+  - Make page thumbnails VoiceOver-friendly (Page 1… labels, hide decorative images) ✅ DONE
 
-**Current Status:** Empty states implemented. Permissions, error handling, and performance optimizations pending.
+**Current Status:** Empty states, permissions UX, error handling, performance optimizations, and basic accessibility are implemented.
 
 TRACK B STATUS:
 - ✅ B1: Photo import - COMPLETE
@@ -300,13 +337,14 @@ TRACK B STATUS:
 - ✅ B4: OCR - COMPLETE
 - ✅ B5: Export - COMPLETE
 - ✅ B6: Persistence - COMPLETE
-- 🔄 B7: Polish - IN PROGRESS
+- ✅ B7: Polish - COMPLETE
 - ✅ B8: Tag Management - COMPLETE
+- ⏳ B9: Settings - PENDING
 
 TRACK B DONE when:
 - Full scan pipeline works with real data. ✅ DONE
 - Exports and persistence are reliable. ✅ DONE
-- App feels production-ready. 🔄 (Polish in progress)
+- App feels production-ready. ✅ DONE
 
 ---
 

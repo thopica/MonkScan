@@ -55,12 +55,14 @@ struct PagesView: View {
                             Image(systemName: "square.and.arrow.up")
                                 .font(.system(size: 18, weight: .semibold))
                                 .foregroundStyle(NBColors.ink)
-                                .padding(8)
+                                .frame(width: 44, height: 44)
                                 .background(NBColors.warmCard)
                                 .clipShape(Circle())
                                 .overlay(Circle().stroke(NBColors.ink, lineWidth: NBTheme.stroke))
                         }
                         .disabled(pages.isEmpty)
+                        .accessibilityLabel("Share")
+                        .accessibilityHint("Export and share this document")
                         
                         // Save button (primary)
                         Button {
@@ -230,7 +232,7 @@ struct PagesView: View {
         let items: [Any]
         switch format {
         case .pdf:
-            guard let url = ExportService.generatePDF(from: pages, title: exportName) else {
+            guard let url = ExportService.generatePDF(from: pages, title: exportName, imageURLProvider: { $0.sourceImageURL }) else {
                 exportErrorMessage = "Couldn’t generate the PDF. Please try again."
                 showExportErrorAlert = true
                 showShareSheet = false
@@ -238,7 +240,7 @@ struct PagesView: View {
             }
             items = [url]
         case .images:
-            let urls = ExportService.generateJPGs(from: pages, title: exportName)
+            let urls = ExportService.generateJPGs(from: pages, title: exportName, imageURLProvider: { $0.sourceImageURL })
             guard !urls.isEmpty else {
                 exportErrorMessage = "Couldn’t generate images. Please try again."
                 showExportErrorAlert = true
@@ -319,10 +321,12 @@ struct PageThumbnail: View {
                                 Image(uiImage: image)
                                     .resizable()
                                     .scaledToFill()
+                                    .accessibilityHidden(true)
                             } else {
                                 Image(systemName: "doc.text")
                                     .font(.system(size: 32))
                                     .foregroundStyle(NBColors.mutedInk)
+                                    .accessibilityHidden(true)
                             }
                         }
                     )
@@ -341,12 +345,14 @@ struct PageThumbnail: View {
                             Image(systemName: "trash.fill")
                                 .font(.system(size: 13, weight: .bold))
                                 .foregroundStyle(NBColors.ink)
-                                .frame(width: 32, height: 32)
+                                .frame(width: 44, height: 44)
                                 .background(Color(red: 1.0, green: 0.6, blue: 0.6))
                                 .clipShape(Circle())
                                 .overlay(Circle().stroke(NBColors.ink, lineWidth: NBTheme.stroke))
                         }
                         .offset(x: -8, y: -8)
+                        .accessibilityLabel("Delete page \(index + 1)")
+                        .accessibilityHint("Deletes this page from the document")
                         
                         Spacer()
                     }
@@ -363,12 +369,14 @@ struct PageThumbnail: View {
                             Image(systemName: "pencil")
                                 .font(.system(size: 14, weight: .bold))
                                 .foregroundStyle(NBColors.ink)
-                                .frame(width: 32, height: 32)
+                                .frame(width: 44, height: 44)
                                 .background(NBColors.yellow)
                                 .clipShape(Circle())
                                 .overlay(Circle().stroke(NBColors.ink, lineWidth: NBTheme.stroke))
                         }
                         .offset(x: 8, y: -8)
+                        .accessibilityLabel("Edit page \(index + 1)")
+                        .accessibilityHint("Opens page editing")
                     }
                     Spacer()
                 }

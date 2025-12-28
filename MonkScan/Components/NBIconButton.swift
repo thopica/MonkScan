@@ -4,6 +4,8 @@ struct NBIconButton: View {
     let systemName: String
     var filled: Bool = true
     var size: CGFloat = 44
+    var accessibilityLabel: String? = nil
+    var accessibilityHint: String? = nil
     let action: () -> Void
 
     var body: some View {
@@ -17,5 +19,7 @@ struct NBIconButton: View {
                 .clipShape(Circle())
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(accessibilityLabel ?? "")
+        .accessibilityHint(accessibilityHint ?? "")
     }
 }

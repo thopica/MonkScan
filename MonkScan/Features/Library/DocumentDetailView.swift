@@ -85,7 +85,10 @@ struct DocumentDetailView: View {
                         Image(systemName: "ellipsis.circle")
                             .font(.system(size: 22))
                             .foregroundStyle(NBColors.ink)
+                            .frame(width: 44, height: 44)
                     }
+                    .accessibilityLabel("More actions")
+                    .accessibilityHint("Shows document actions like export and delete")
                 }
                 .padding(.horizontal, NBTheme.padding)
                 .padding(.vertical, 12)
@@ -233,14 +236,28 @@ struct DocumentDetailView: View {
         let items: [Any]
         switch format {
         case .pdf:
-            guard let url = ExportService.generatePDF(from: document.pages, title: exportName) else {
+            guard let url = ExportService.generatePDF(
+                from: document.pages,
+                title: exportName,
+                imageURLProvider: { page in
+                    guard let imagePath = page.imagePath else { return nil }
+                    return libraryStore.documentStore.imageFileURL(documentId: document.id, imagePath: imagePath)
+                }
+            ) else {
                 activeAlert = .exportFailed(message: "Couldn’t generate the PDF. Please try again.")
                 showShareSheet = false
                 return
             }
             items = [url]
         case .images:
-            let urls = ExportService.generateJPGs(from: document.pages, title: exportName)
+            let urls = ExportService.generateJPGs(
+                from: document.pages,
+                title: exportName,
+                imageURLProvider: { page in
+                    guard let imagePath = page.imagePath else { return nil }
+                    return libraryStore.documentStore.imageFileURL(documentId: document.id, imagePath: imagePath)
+                }
+            )
             guard !urls.isEmpty else {
                 activeAlert = .exportFailed(message: "Couldn’t generate images. Please try again.")
                 showShareSheet = false
@@ -316,10 +333,12 @@ struct DocumentPageThumbnail: View {
                                     Image(uiImage: image)
                                         .resizable()
                                         .scaledToFill()
+                                        .accessibilityHidden(true)
                                 } else {
                                     Image(systemName: "doc.text")
                                         .font(.system(size: 32))
                                         .foregroundStyle(NBColors.mutedInk)
+                                        .accessibilityHidden(true)
                                 }
                             }
                         )
@@ -353,6 +372,8 @@ struct DocumentPageThumbnail: View {
             }
         }
         .buttonStyle(.plain)
+        .accessibilityLabel("Page \(index + 1)")
+        .accessibilityHint("Opens page editing")
     }
 }
 

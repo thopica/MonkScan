@@ -26,6 +26,8 @@ struct OCRResultsView: View {
                             .foregroundStyle(NBColors.ink)
                             .frame(width: 44, height: 44)
                     }
+                    .accessibilityLabel("Close")
+                    .accessibilityHint("Dismiss OCR results")
                     
                     Spacer()
                     
@@ -40,6 +42,7 @@ struct OCRResultsView: View {
                         .font(.system(size: 18, weight: .bold))
                         .frame(width: 44, height: 44)
                         .opacity(0)
+                        .accessibilityHidden(true)
                 }
                 .padding(.horizontal, NBTheme.padding)
                 .padding(.vertical, 12)

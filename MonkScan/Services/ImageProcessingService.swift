@@ -1,9 +1,35 @@
 import UIKit
 import CoreImage
 import CoreImage.CIFilterBuiltins
+import ImageIO
 
 /// Service for applying image adjustments (brightness, contrast, rotation)
 enum ImageProcessingService {
+    
+    /// Load a downsampled image from disk to reduce memory usage.
+    /// Uses ImageIO thumbnail generation so we never decode the full-resolution image into memory.
+    static func downsampledImage(at url: URL, maxPixelSize: CGFloat) -> UIImage? {
+        let sourceOptions = [
+            kCGImageSourceShouldCache: false
+        ] as CFDictionary
+        
+        guard let source = CGImageSourceCreateWithURL(url as CFURL, sourceOptions) else {
+            return nil
+        }
+        
+        let thumbnailOptions = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceShouldCacheImmediately: true,
+            kCGImageSourceThumbnailMaxPixelSize: maxPixelSize
+        ] as CFDictionary
+        
+        guard let cgImage = CGImageSourceCreateThumbnailAtIndex(source, 0, thumbnailOptions) else {
+            return nil
+        }
+        
+        return UIImage(cgImage: cgImage)
+    }
     
     /// Apply brightness, contrast, and rotation to an image
     static func applyAdjustments(

@@ -6,6 +6,8 @@ import Combine
 class ScanSessionStore: ObservableObject {
     @Published var currentSession: ScanSession?
     
+    private let previewMaxPixelSize: CGFloat = 2000
+    
     func startNewSession() {
         currentSession = ScanSession()
     }
@@ -14,7 +16,16 @@ class ScanSessionStore: ObservableObject {
         if currentSession == nil {
             startNewSession()
         }
-        let page = ScanPage(uiImage: image)
+        
+        // Write full-res to a temp file for high-quality export, keep only a downsampled preview in memory.
+        let pageId = UUID()
+        let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent("scan-\(pageId.uuidString).jpg")
+        if let data = image.jpegData(compressionQuality: 0.95) {
+            try? data.write(to: tempURL, options: .atomic)
+        }
+        
+        let previewImage = ImageProcessingService.downsampledImage(at: tempURL, maxPixelSize: previewMaxPixelSize) ?? image
+        let page = ScanPage(id: pageId, uiImage: previewImage, sourceImageURL: tempURL)
         currentSession?.pages.append(page)
     }
     

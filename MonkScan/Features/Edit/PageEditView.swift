@@ -61,6 +61,8 @@ struct PageEditView: View {
                             .foregroundStyle(NBColors.yellow)
                             .frame(width: 44, height: 44)
                     }
+                    .accessibilityLabel("Save")
+                    .accessibilityHint("Saves changes and returns to pages")
                 }
                 .padding(.horizontal, NBTheme.padding)
                 .padding(.vertical, 12)

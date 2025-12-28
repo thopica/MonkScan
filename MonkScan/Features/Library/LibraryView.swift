@@ -184,8 +184,11 @@ struct DocumentRow: View {
                 Image(systemName: "trash")
                     .font(.system(size: 16, weight: .bold))
                     .foregroundStyle(NBColors.ink.opacity(0.6))
+                    .frame(width: 44, height: 44)
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("Delete document")
+            .accessibilityHint("Deletes this document")
             }
         }
         .padding(12)

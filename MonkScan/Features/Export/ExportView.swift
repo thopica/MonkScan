@@ -86,7 +86,10 @@ struct SaveDocumentView: View {
                                         Image(systemName: "plus.circle.fill")
                                             .font(.system(size: 20))
                                             .foregroundStyle(NBColors.ink)
+                                            .frame(width: 44, height: 44)
                                     }
+                                    .accessibilityLabel("Add tag")
+                                    .accessibilityHint("Opens tag picker")
                                 }
                                 
                                 if selectedTags.isEmpty {
@@ -278,14 +281,14 @@ struct SaveDocumentView: View {
         let items: [Any]
         switch format {
         case .pdf:
-            guard let url = ExportService.generatePDF(from: pages, title: exportName) else {
+            guard let url = ExportService.generatePDF(from: pages, title: exportName, imageURLProvider: { $0.sourceImageURL }) else {
                 returnToLibraryAfterAlert = true
                 showError(title: "Export Failed", message: "Couldn’t generate the PDF. Please try again.")
                 return
             }
             items = [url]
         case .images:
-            let urls = ExportService.generateJPGs(from: pages, title: exportName)
+            let urls = ExportService.generateJPGs(from: pages, title: exportName, imageURLProvider: { $0.sourceImageURL })
             guard !urls.isEmpty else {
                 returnToLibraryAfterAlert = true
                 showError(title: "Export Failed", message: "Couldn’t generate images. Please try again.")

@@ -12,12 +12,13 @@ struct ScanPage: Identifiable, Equatable, Codable {
     
     // In-memory only (not persisted)
     var uiImage: UIImage?
+    var sourceImageURL: URL?
     
     enum CodingKeys: String, CodingKey {
         case id, imagePath, rotation, brightness, contrast, ocrText
     }
     
-    init(id: UUID = UUID(), uiImage: UIImage? = nil, imagePath: String? = nil, rotation: Int = 0, brightness: Double = 0.0, contrast: Double = 1.0, ocrText: String? = nil) {
+    init(id: UUID = UUID(), uiImage: UIImage? = nil, imagePath: String? = nil, rotation: Int = 0, brightness: Double = 0.0, contrast: Double = 1.0, ocrText: String? = nil, sourceImageURL: URL? = nil) {
         self.id = id
         self.uiImage = uiImage
         self.imagePath = imagePath
@@ -25,6 +26,7 @@ struct ScanPage: Identifiable, Equatable, Codable {
         self.brightness = brightness
         self.contrast = contrast
         self.ocrText = ocrText
+        self.sourceImageURL = sourceImageURL
     }
     
     // Codable conformance (uiImage excluded)
@@ -37,6 +39,7 @@ struct ScanPage: Identifiable, Equatable, Codable {
         contrast = try container.decode(Double.self, forKey: .contrast)
         ocrText = try container.decodeIfPresent(String.self, forKey: .ocrText)
         uiImage = nil // Will be loaded from disk when needed
+        sourceImageURL = nil
     }
     
     func encode(to encoder: Encoder) throws {
