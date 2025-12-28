@@ -6,10 +6,25 @@ struct DocumentDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var document: ScanDocument?
     @State private var showEditMetadata = false
-    @State private var showDeleteAlert = false
     @State private var selectedPageIndex: Int?
     @State private var showShareSheet = false
     @State private var shareFormat: ExportShareFormat = .pdf
+    
+    @State private var activeAlert: ActiveAlert?
+    
+    private enum ActiveAlert: Identifiable {
+        case deleteDocument
+        case exportFailed(message: String)
+        
+        var id: String {
+            switch self {
+            case .deleteDocument:
+                return "deleteDocument"
+            case .exportFailed(let message):
+                return "exportFailed-\(message)"
+            }
+        }
+    }
     
     var body: some View {
         Group {
@@ -62,7 +77,7 @@ struct DocumentDetailView: View {
                         Divider()
                         
                         Button(role: .destructive) {
-                            showDeleteAlert = true
+                            activeAlert = .deleteDocument
                         } label: {
                             Label("Delete Document", systemImage: "trash")
                         }
@@ -165,16 +180,27 @@ struct DocumentDetailView: View {
                 )
             }
         }
-        .alert("Delete Document?", isPresented: $showDeleteAlert) {
-            Button("Cancel", role: .cancel) { }
-            Button("Delete", role: .destructive) {
-                Task {
-                    try? await libraryStore.deleteDocument(document.id)
-                    dismiss()
-                }
+        .alert(item: $activeAlert) { alert in
+            switch alert {
+            case .deleteDocument:
+                return Alert(
+                    title: Text("Delete Document?"),
+                    message: Text("Are you sure you want to delete '\(document.title)'? This action cannot be undone."),
+                    primaryButton: .destructive(Text("Delete")) {
+                        Task {
+                            try? await libraryStore.deleteDocument(document.id)
+                            dismiss()
+                        }
+                    },
+                    secondaryButton: .cancel(Text("Cancel"))
+                )
+            case .exportFailed(let message):
+                return Alert(
+                    title: Text("Export Failed"),
+                    message: Text(message),
+                    dismissButton: .default(Text("OK"))
+                )
             }
-        } message: {
-            Text("Are you sure you want to delete '\(document.title)'? This action cannot be undone.")
         }
     }
     
@@ -198,6 +224,7 @@ struct DocumentDetailView: View {
     private func shareDocument(document: ScanDocument, format: ExportShareFormat) {
         let exportName = document.title.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !exportName.isEmpty else {
+            activeAlert = .exportFailed(message: "Document name can’t be empty.")
             showShareSheet = false
             return
         }
@@ -207,7 +234,7 @@ struct DocumentDetailView: View {
         switch format {
         case .pdf:
             guard let url = ExportService.generatePDF(from: document.pages, title: exportName) else {
-                print("Failed to generate PDF")
+                activeAlert = .exportFailed(message: "Couldn’t generate the PDF. Please try again.")
                 showShareSheet = false
                 return
             }
@@ -215,14 +242,14 @@ struct DocumentDetailView: View {
         case .images:
             let urls = ExportService.generateJPGs(from: document.pages, title: exportName)
             guard !urls.isEmpty else {
-                print("Failed to generate images")
+                activeAlert = .exportFailed(message: "Couldn’t generate images. Please try again.")
                 showShareSheet = false
                 return
             }
             items = urls
         case .text:
             guard let url = ExportService.generateTextFile(from: document.pages, title: exportName) else {
-                print("Failed to generate text file")
+                activeAlert = .exportFailed(message: "Couldn’t generate the text file. Please try again.")
                 showShareSheet = false
                 return
             }

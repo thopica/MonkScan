@@ -17,6 +17,7 @@ struct SavedPageEditView: View {
     @State private var isProcessingOCR = false
     @State private var ocrText: String?
     @State private var ocrError: String?
+    @State private var saveError: String?
     
     private let ocrService: OCRService = VisionOCRService()
     
@@ -200,6 +201,15 @@ struct SavedPageEditView: View {
                 OCRResultsView(ocrText: ocrText)
             }
         }
+        .alert("Save Failed", isPresented: .constant(saveError != nil)) {
+            Button("OK") {
+                saveError = nil
+            }
+        } message: {
+            if let error = saveError {
+                Text(error)
+            }
+        }
         .alert("OCR Error", isPresented: .constant(ocrError != nil)) {
             Button("OK") {
                 ocrError = nil
@@ -260,7 +270,7 @@ struct SavedPageEditView: View {
                 await MainActor.run {
                     isSaving = false
                     hasChanges = true // Restore changes flag on error
-                    print("Failed to save page edits: \(error)")
+                    saveError = error.localizedDescription
                 }
             }
         }

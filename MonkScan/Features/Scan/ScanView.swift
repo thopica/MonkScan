@@ -1,12 +1,23 @@
 import SwiftUI
 import PhotosUI
 import VisionKit
+import AVFoundation
+import UIKit
 
 struct ScanView: View {
     @StateObject private var sessionStore = ScanSessionStore()
     @State private var showPages = false
     @State private var selectedPhotoItems: [PhotosPickerItem] = []
     @State private var showDocumentScanner = false
+    
+    @State private var activeAlert: ActiveAlert?
+    @State private var showAlert = false
+    
+    private struct ActiveAlert {
+        let title: String
+        let message: String
+        let showsSettingsButton: Bool
+    }
     
     var body: some View {
         NavigationStack {
@@ -46,7 +57,7 @@ struct ScanView: View {
                             
                             // Start scan button
                             Button {
-                                showDocumentScanner = true
+                                Task { await startScanTapped() }
                             } label: {
                                 VStack(spacing: 12) {
                                     Image(systemName: "doc.text.viewfinder")
@@ -83,8 +94,61 @@ struct ScanView: View {
             .sheet(isPresented: $showDocumentScanner) {
                 DocumentScannerView(isPresented: $showDocumentScanner) { images in
                     handleScannedDocuments(images)
+                } onScanError: { error in
+                    showScanFailedAlert(error)
                 }
             }
+            .alert(activeAlert?.title ?? "", isPresented: $showAlert) {
+                if activeAlert?.showsSettingsButton == true {
+                    Button("Open Settings") {
+                        openAppSettings()
+                    }
+                }
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text(activeAlert?.message ?? "")
+            }
+        }
+    }
+    
+    @MainActor
+    private func startScanTapped() async {
+        guard VNDocumentCameraViewController.isSupported else {
+            presentAlert(
+                title: "Scanning Not Supported",
+                message: "Document scanning isn’t available on this device. Try on a physical iPhone/iPad.",
+                showsSettingsButton: false
+            )
+            return
+        }
+        
+        let status = AVCaptureDevice.authorizationStatus(for: .video)
+        switch status {
+        case .authorized:
+            showDocumentScanner = true
+        case .notDetermined:
+            let granted = await AVCaptureDevice.requestAccess(for: .video)
+            if granted {
+                showDocumentScanner = true
+            } else {
+                presentAlert(
+                    title: "Camera Access Needed",
+                    message: "Allow camera access to scan documents.",
+                    showsSettingsButton: true
+                )
+            }
+        case .denied, .restricted:
+            presentAlert(
+                title: "Camera Access Needed",
+                message: "Camera access is turned off for MonkScan. You can enable it in Settings.",
+                showsSettingsButton: true
+            )
+        @unknown default:
+            presentAlert(
+                title: "Camera Unavailable",
+                message: "We couldn’t access the camera right now. Please try again.",
+                showsSettingsButton: false
+            )
         }
     }
     
@@ -104,6 +168,12 @@ struct ScanView: View {
         // Navigate to PagesView after loading photos (if any were loaded)
         if loadedCount > 0 {
             showPages = true
+        } else {
+            presentAlert(
+                title: "Couldn’t Import Photos",
+                message: "No images were imported. Please check Photos access for MonkScan in Settings and try again.",
+                showsSettingsButton: true
+            )
         }
         
         // Clear selection so onChange can trigger again if user selects more photos
@@ -122,6 +192,26 @@ struct ScanView: View {
         if !images.isEmpty {
             showPages = true
         }
+    }
+    
+    @MainActor
+    private func showScanFailedAlert(_ error: Error) {
+        presentAlert(
+            title: "Scan Failed",
+            message: error.localizedDescription,
+            showsSettingsButton: false
+        )
+    }
+    
+    @MainActor
+    private func presentAlert(title: String, message: String, showsSettingsButton: Bool) {
+        activeAlert = ActiveAlert(title: title, message: message, showsSettingsButton: showsSettingsButton)
+        showAlert = true
+    }
+    
+    private func openAppSettings() {
+        guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
+        UIApplication.shared.open(url)
     }
 }
 

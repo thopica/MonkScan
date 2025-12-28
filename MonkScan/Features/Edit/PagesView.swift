@@ -12,6 +12,9 @@ struct PagesView: View {
     @State private var targetedPageId: UUID?
     @State private var selectedPageIndex: Int?
     
+    @State private var showExportErrorAlert = false
+    @State private var exportErrorMessage = ""
+    
     private var pages: [ScanPage] {
         sessionStore.currentSession?.pages ?? []
     }
@@ -199,6 +202,11 @@ struct PagesView: View {
                 }
             )
         }
+        .alert("Export Failed", isPresented: $showExportErrorAlert) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(exportErrorMessage)
+        }
         .navigationBarHidden(true)
     }
     
@@ -211,14 +219,20 @@ struct PagesView: View {
     
     private func shareDocument(name: String, format: ExportShareFormat) {
         let exportName = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !exportName.isEmpty else { return }
+        guard !exportName.isEmpty else {
+            exportErrorMessage = "Document name can’t be empty."
+            showExportErrorAlert = true
+            showShareSheet = false
+            return
+        }
         
         // Generate export items
         let items: [Any]
         switch format {
         case .pdf:
             guard let url = ExportService.generatePDF(from: pages, title: exportName) else {
-                print("Failed to generate PDF")
+                exportErrorMessage = "Couldn’t generate the PDF. Please try again."
+                showExportErrorAlert = true
                 showShareSheet = false
                 return
             }
@@ -226,14 +240,16 @@ struct PagesView: View {
         case .images:
             let urls = ExportService.generateJPGs(from: pages, title: exportName)
             guard !urls.isEmpty else {
-                print("Failed to generate images")
+                exportErrorMessage = "Couldn’t generate images. Please try again."
+                showExportErrorAlert = true
                 showShareSheet = false
                 return
             }
             items = urls
         case .text:
             guard let url = ExportService.generateTextFile(from: pages, title: exportName) else {
-                print("Failed to generate text file")
+                exportErrorMessage = "Couldn’t generate the text file. Please try again."
+                showExportErrorAlert = true
                 showShareSheet = false
                 return
             }

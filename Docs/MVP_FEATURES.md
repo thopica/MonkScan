@@ -282,6 +282,12 @@ Acceptance:
 - Permissions UX (camera/photos) ⏳
 - Empty states (no docs / no pages) ✅ DONE
 - Error handling (failed export, failed OCR, permission denied) ⏳
+  - SaveDocumentView: show alerts for save/export failures (no print-only) ✅ DONE
+  - PagesView: show alerts when export generation fails ✅ DONE
+  - DocumentDetailView: show alerts when export generation fails ✅ DONE
+  - EditMetadataView: show alert when metadata update fails ✅ DONE
+  - SavedPageEditView: show alert when saving page edits fails ✅ DONE
+  - OCRResultsView: show alert when exporting OCR text file fails ✅ DONE
 - Performance: avoid keeping huge images in memory (use downsampling) ⏳
 - Basic accessibility: button sizes, labels ⏳
 

@@ -11,6 +11,11 @@ struct SaveDocumentView: View {
     @State private var showTagPicker = false
     @State private var isSaving = false
     
+    @State private var showErrorAlert = false
+    @State private var errorAlertTitle = ""
+    @State private var errorAlertMessage = ""
+    @State private var returnToLibraryAfterAlert = false
+    
     init(sessionStore: ScanSessionStore) {
         self.sessionStore = sessionStore
         _documentTitle = State(initialValue: sessionStore.currentSession?.draftTitle ?? "Scan")
@@ -193,6 +198,16 @@ struct SaveDocumentView: View {
         .sheet(isPresented: $showTagPicker) {
             TagPickerView(selectedTags: $selectedTags)
         }
+        .alert(errorAlertTitle, isPresented: $showErrorAlert) {
+            Button("OK") {
+                if returnToLibraryAfterAlert {
+                    returnToLibraryAfterAlert = false
+                    returnToLibrary()
+                }
+            }
+        } message: {
+            Text(errorAlertMessage)
+        }
     }
     
     // MARK: - Save Document
@@ -232,8 +247,8 @@ struct SaveDocumentView: View {
             } catch {
                 await MainActor.run {
                     isSaving = false
-                    // TODO: Show error alert
-                    print("Failed to save document: \(error)")
+                    returnToLibraryAfterAlert = false
+                    showError(title: "Save Failed", message: error.localizedDescription)
                 }
             }
         }
@@ -255,7 +270,8 @@ struct SaveDocumentView: View {
     private func shareDocument(title: String, pages: [ScanPage], format: ExportShareFormat) {
         let exportName = title.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !exportName.isEmpty else {
-            returnToLibrary()
+            returnToLibraryAfterAlert = true
+            showError(title: "Export Failed", message: "Document name can’t be empty.")
             return
         }
         
@@ -263,23 +279,23 @@ struct SaveDocumentView: View {
         switch format {
         case .pdf:
             guard let url = ExportService.generatePDF(from: pages, title: exportName) else {
-                print("Failed to generate PDF")
-                returnToLibrary()
+                returnToLibraryAfterAlert = true
+                showError(title: "Export Failed", message: "Couldn’t generate the PDF. Please try again.")
                 return
             }
             items = [url]
         case .images:
             let urls = ExportService.generateJPGs(from: pages, title: exportName)
             guard !urls.isEmpty else {
-                print("Failed to generate images")
-                returnToLibrary()
+                returnToLibraryAfterAlert = true
+                showError(title: "Export Failed", message: "Couldn’t generate images. Please try again.")
                 return
             }
             items = urls
         case .text:
             guard let url = ExportService.generateTextFile(from: pages, title: exportName) else {
-                print("Failed to generate text file")
-                returnToLibrary()
+                returnToLibraryAfterAlert = true
+                showError(title: "Export Failed", message: "Couldn’t generate the text file. Please try again.")
                 return
             }
             items = [url]
@@ -312,6 +328,12 @@ struct SaveDocumentView: View {
             
             topVC.present(activityVC, animated: true)
         }
+    }
+    
+    private func showError(title: String, message: String) {
+        errorAlertTitle = title
+        errorAlertMessage = message
+        showErrorAlert = true
     }
 }
 

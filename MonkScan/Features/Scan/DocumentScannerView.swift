@@ -5,6 +5,7 @@ import UIKit
 struct DocumentScannerView: UIViewControllerRepresentable {
     @Binding var isPresented: Bool
     let onScanComplete: ([UIImage]) -> Void
+    let onScanError: ((Error) -> Void)?
     
     func makeUIViewController(context: Context) -> VNDocumentCameraViewController {
         let scanner = VNDocumentCameraViewController()
@@ -37,7 +38,7 @@ struct DocumentScannerView: UIViewControllerRepresentable {
         }
         
         func documentCameraViewController(_ controller: VNDocumentCameraViewController, didFailWithError error: Error) {
-            print("Document scanner error: \(error.localizedDescription)")
+            parent.onScanError?(error)
             parent.isPresented = false
         }
         

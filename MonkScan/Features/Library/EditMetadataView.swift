@@ -9,6 +9,9 @@ struct EditMetadataView: View {
     @State private var showTagPicker = false
     @State private var isSaving = false
     
+    @State private var showSaveErrorAlert = false
+    @State private var saveErrorMessage = ""
+    
     init(document: ScanDocument) {
         self.document = document
         _documentTitle = State(initialValue: document.title)
@@ -128,6 +131,11 @@ struct EditMetadataView: View {
             .sheet(isPresented: $showTagPicker) {
                 TagPickerView(selectedTags: $selectedTags)
             }
+            .alert("Save Failed", isPresented: $showSaveErrorAlert) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text(saveErrorMessage)
+            }
         }
     }
     
@@ -151,8 +159,8 @@ struct EditMetadataView: View {
             } catch {
                 await MainActor.run {
                     isSaving = false
-                    // TODO: Show error
-                    print("Failed to update document: \(error)")
+                    saveErrorMessage = error.localizedDescription
+                    showSaveErrorAlert = true
                 }
             }
         }

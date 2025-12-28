@@ -7,6 +7,10 @@ struct OCRResultsView: View {
     @State private var showShareSheet = false
     @State private var showCopiedAlert = false
     
+    @State private var shareItems: [Any] = []
+    @State private var showExportErrorAlert = false
+    @State private var exportErrorMessage = ""
+    
     var body: some View {
         ZStack {
             NBColors.paper.ignoresSafeArea()
@@ -100,7 +104,13 @@ struct OCRResultsView: View {
                     
                     // Export button
                     Button {
-                        showShareSheet = true
+                        if let url = createTextFile() {
+                            shareItems = [url]
+                            showShareSheet = true
+                        } else {
+                            exportErrorMessage = "Couldn’t create the text file. Please try again."
+                            showExportErrorAlert = true
+                        }
                     } label: {
                         HStack {
                             Image(systemName: "square.and.arrow.up")
@@ -126,7 +136,12 @@ struct OCRResultsView: View {
             }
         }
         .sheet(isPresented: $showShareSheet) {
-            ShareSheet(activityItems: [createTextFile()])
+            ShareSheet(activityItems: shareItems)
+        }
+        .alert("Export Failed", isPresented: $showExportErrorAlert) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(exportErrorMessage)
         }
         .alert("Copied!", isPresented: $showCopiedAlert) {
             Button("OK", role: .cancel) { }
@@ -142,14 +157,14 @@ struct OCRResultsView: View {
         showCopiedAlert = true
     }
     
-    private func createTextFile() -> URL {
+    private func createTextFile() -> URL? {
         let fileName = "OCR-\(Date().timeIntervalSince1970).txt"
         let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent(fileName)
         
         do {
             try ocrText.write(to: tempURL, atomically: true, encoding: .utf8)
         } catch {
-            print("Error creating text file: \(error)")
+            return nil
         }
         
         return tempURL
