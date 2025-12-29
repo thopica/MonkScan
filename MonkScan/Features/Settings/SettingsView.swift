@@ -53,7 +53,7 @@ struct SettingsView: View {
                                         .font(NBType.body)
                                         .foregroundStyle(NBColors.ink)
                                     Spacer()
-                                    Text("1.0.0")
+                                    Text(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0")
                                         .font(NBType.body)
                                         .foregroundStyle(NBColors.mutedInk)
                                 }

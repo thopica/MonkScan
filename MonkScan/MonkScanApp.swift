@@ -4,6 +4,7 @@ import SwiftUI
 struct MonkScanApp: App {
     @StateObject private var libraryStore: LibraryStore
     @StateObject private var settingsStore: SettingsStore
+    @State private var showWelcomeScreen = true
     
     init() {
         // Initialize document store and library store
@@ -22,13 +23,25 @@ struct MonkScanApp: App {
     
     var body: some Scene {
         WindowGroup {
-            AppTabView()
-                .environmentObject(libraryStore)
-                .environmentObject(settingsStore)
-                .task {
-                    // Load documents on app launch
-                    await libraryStore.loadDocuments()
+            ZStack {
+                AppTabView()
+                    .environmentObject(libraryStore)
+                    .environmentObject(settingsStore)
+                    .task {
+                        // Load documents on app launch
+                        await libraryStore.loadDocuments()
+                    }
+                
+                if showWelcomeScreen {
+                    WelcomeScreenView {
+                        withAnimation(.easeOut(duration: 0.4)) {
+                            showWelcomeScreen = false
+                        }
+                    }
+                    .transition(.opacity)
+                    .zIndex(1)
                 }
+            }
         }
     }
 }

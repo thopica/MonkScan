@@ -4,17 +4,18 @@ Goal: Ship a beautiful, intuitive, production-ready scanner app.
 Core flow: Library → Scan → Crop/Perspective → Enhance → Pages → Export
 No backend. Offline-first.
 
-## 🎯 Current Status (Updated: Dec 26, 2025)
+## 🎯 Current Status (Updated: Dec 29, 2025)
 **Track A:** ✅ COMPLETE (All UI screens built)
-**Track B:** ✅ ~95% COMPLETE (All core features done, polish remaining)
+**Track B:** ✅ ~98% COMPLETE (All core features done, polish remaining)
 
 ### Latest Updates:
+- ✅ **Welcome Screen**: Animated typewriter splash screen on app launch
 - ✅ **Export System Redesign**: Complete workflow overhaul with format selection (PDF/Images/Text)
 - ✅ **Tag Management**: Custom tags with persistence and global delete
 - ✅ **Shared Components**: ShareDocumentSheet reused across app for consistency
 
 ### Next Priority:
-**B7 - Polish:** Permissions UX, error handling, and performance optimizations
+**B9 - Settings:** Rate MonkScan button (pending App Store listing)
 
 Locked decisions:
 - Navigation: Bottom tab bar (Library / Scan / Settings)
